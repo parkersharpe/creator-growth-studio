@@ -1,0 +1,7 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #ffffff; color: #0a0a0a; font-family: 'DM Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+input[type=range] { -webkit-appearance: none; appearance: none; height: 2px; border-radius: 1px; outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; }
+input[type=text], input[type=email] { outline: none; }
+button { font-family: inherit; }
+::-webkit-scrollbar { display: none; }

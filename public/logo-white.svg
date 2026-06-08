@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none">
+  <!-- Sparkle mark -->
+  <path d="M32 4 C32 4 30 18 30 26 C30 26 18 28 4 32 C4 32 18 36 30 38 C30 38 32 50 32 60 C32 60 34 50 34 38 C34 38 46 36 60 32 C60 32 46 28 34 26 C34 26 32 18 32 4 Z" fill="#ffffff"/>
+  <!-- Wordmark -->
+  <text x="76" y="22" font-family="'DM Sans', -apple-system, sans-serif" font-size="13" font-weight="800" fill="#ffffff" letter-spacing="-0.3">CREATOR</text>
+  <text x="76" y="42" font-family="'DM Sans', -apple-system, sans-serif" font-size="13" font-weight="800" fill="#ffffff" letter-spacing="-0.3">GROWTH</text>
+  <text x="76" y="58" font-family="'DM Sans', -apple-system, sans-serif" font-size="10" font-weight="500" fill="rgba(255,255,255,0.45)" letter-spacing="0.5">STUDIO</text>
+</svg>
