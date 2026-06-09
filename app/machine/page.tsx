@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DARK, LIGHT, VOICES, NICHES } from '@/lib/theme';
 import { BrandProfile, MachineType, VoiceKey } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import LoadingSparkle from '@/components/LoadingSparkle';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -162,7 +163,7 @@ export default function MachinePage() {
                 letterSpacing: '-0.02em', boxShadow: loading ? 'none' : t.shadowMd,
               }}
             >
-              {loading ? 'Generating...' : `Generate ${activeType.charAt(0).toUpperCase() + activeType.slice(1)}`}
+              {loading ? <LoadingSparkle label="Generating" light /> : `Generate ${activeType.charAt(0).toUpperCase() + activeType.slice(1)}`}
             </button>
           </div>
         ) : (
@@ -181,7 +182,7 @@ export default function MachinePage() {
                   opacity: loading ? 0.6 : 1,
                 }}
               >
-                {loading ? 'Loading...' : 'Regenerate'}
+                {loading ? <LoadingSparkle size="sm" /> : 'Regenerate'}
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -248,7 +249,7 @@ export default function MachinePage() {
                 letterSpacing: '-0.02em', boxShadow: loading ? 'none' : t.shadowMd,
               }}
             >
-              {loading ? 'Generating...' : `Regenerate ${activeType.charAt(0).toUpperCase() + activeType.slice(1)}`}
+              {loading ? <LoadingSparkle label="Generating" light /> : `Regenerate ${activeType.charAt(0).toUpperCase() + activeType.slice(1)}`}
             </button>
           </>
         )}

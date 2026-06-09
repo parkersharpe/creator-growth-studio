@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { DARK, LIGHT, BG_PRESETS, GRADIENTS, FONTS, SEED_QUOTES } from '@/lib/theme';
 import { Quote, BrandProfile, DesignSettings } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import LoadingSparkle from '@/components/LoadingSparkle';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -451,7 +452,7 @@ export default function DesignerPage() {
             transition: 'all 0.15s',
           }}
         >
-          {downloading ? 'Saving...' : 'Download'}
+          {downloading ? <LoadingSparkle label="Saving" light /> : 'Download'}
         </button>
       </div>
 
@@ -1090,7 +1091,7 @@ export default function DesignerPage() {
               letterSpacing: '-0.02em', transition: 'all 0.15s',
             }}
           >
-            {downloading ? 'Saving...' : bgMedia?.type === 'video' ? 'Download Video' : 'Download Image'}
+            {downloading ? <LoadingSparkle label="Saving" light /> : bgMedia?.type === 'video' ? 'Download Video' : 'Download Image'}
           </button>
 
           {/* Instagram Share */}

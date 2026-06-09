@@ -7,6 +7,7 @@ import { Quote, BrandProfile, VoiceKey } from '@/lib/types';
 import Sheet from '@/components/Sheet';
 import QuoteCard from '@/components/QuoteCard';
 import BottomNav from '@/components/BottomNav';
+import LoadingSparkle from '@/components/LoadingSparkle';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -265,7 +266,7 @@ export default function HomePage() {
             letterSpacing: '-0.02em', boxShadow: loading ? 'none' : t.shadowMd,
           }}
         >
-          {loading ? 'Generating...' : `Generate ${count} Quotes`}
+          {loading ? <LoadingSparkle label="Generating" light /> : `Generate ${count} Quotes`}
         </button>
 
       </div>
@@ -486,7 +487,7 @@ export default function HomePage() {
               cursor: rewriting ? 'not-allowed' : 'pointer',
             }}
           >
-            {rewriting ? '...' : 'More Viral'}
+            {rewriting ? <LoadingSparkle size="sm" /> : 'More Viral'}
           </button>
           <button
             onClick={() => {
