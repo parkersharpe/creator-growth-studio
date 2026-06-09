@@ -166,6 +166,14 @@ export default function DesignerPage() {
     const W = activeFormat.w;
     const H = activeFormat.h;
 
+    // iOS Safari doesn't support MediaRecorder/captureStream — export PNG frame instead
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS || !('captureStream' in HTMLCanvasElement.prototype)) {
+      // Fall back to high-quality PNG of current video frame
+      await handleDownload();
+      return;
+    }
+
     const offscreen = document.createElement('canvas');
     offscreen.width = W;
     offscreen.height = H;
@@ -360,24 +368,40 @@ export default function DesignerPage() {
 
       const filename = `cgs-${format.replace(':','-')}-${activeQuote + 1}.png`;
 
-      // Mobile: use Web Share API so iPhone can save to Photos
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], filename, { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file], title: 'Creator Growth Studio' });
-            return;
-          } catch {}
+      // Convert synchronously so iOS Web Share gesture chain isn't broken
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      const arr = dataUrl.split(',');
+      const bstr = atob(arr[1]);
+      const u8arr = new Uint8Array(bstr.length);
+      for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+      const blob = new Blob([u8arr], { type: 'image/png' });
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // iOS: Web Share API → Save to Photos
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Creator Growth Studio' });
+        } catch (err: unknown) {
+          // User cancelled share — that's fine
+          if (err instanceof Error && err.name !== 'AbortError') {
+            // fallback to download link
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = url;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }
         }
-        // Desktop fallback
+      } else {
+        // Desktop: direct download
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.download = filename;
         link.href = url;
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }, 'image/png', 1.0);
+      }
 
     } catch (e) {
       console.error(e);
