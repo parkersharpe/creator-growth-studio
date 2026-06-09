@@ -48,6 +48,20 @@ export default function DesignerPage() {
   const [format, setFormat] = useState<'1:1' | '4:5' | '9:16' | '16:9' | '2:3'>('1:1');
   const [editableTexts, setEditableTexts] = useState<Record<number, string>>({});
   const [isEditingText, setIsEditingText] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Preview dimensions — card renders at natural size, scaled down visually
+  const PREVIEW_MAX_H = 240;
+  const CONTAINER_W = 382;
+  const FMT_RATIOS: Record<string, [number, number]> = {
+    '1:1': [1,1], '4:5': [4,5], '9:16': [9,16], '16:9': [16,9], '2:3': [2,3],
+  };
+  const [fw, fh] = FMT_RATIOS[format] ?? [1,1];
+  const naturalW = CONTAINER_W;
+  const naturalH = Math.round(CONTAINER_W * fh / fw);
+  const previewScale = naturalH > PREVIEW_MAX_H ? PREVIEW_MAX_H / naturalH : (naturalW > CONTAINER_W ? CONTAINER_W / naturalW : 1);
+  const scaledW = Math.round(naturalW * previewScale);
+  const scaledH = Math.round(naturalH * previewScale);
 
   const FORMATS: { id: '1:1' | '4:5' | '9:16' | '16:9' | '2:3'; label: string; ratio: string; w: number; h: number; desc: string }[] = [
     { id: '1:1',  label: '1:1',  ratio: '1 / 1',   w: 1080, h: 1080, desc: 'Feed' },
@@ -161,47 +175,69 @@ export default function DesignerPage() {
     if (!cardRef.current) return;
     setDownloading(true);
     const activeFormat = FORMATS.find(f => f.id === format)!;
+
+    const cardEl = cardRef.current;
+    // cardEl renders at naturalW px wide — scale up to export resolution
+    const scale = activeFormat.w / naturalW;
+
     try {
+      const html2canvas = (await import('html2canvas')).default;
+
+      const canvasOptions = {
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: null,
+        width: cardEl.offsetWidth,
+        height: cardEl.offsetHeight,
+        logging: false,
+      };
+
+      let canvas;
       if (bgMedia?.type === 'video' && videoRef.current) {
         const video = videoRef.current;
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(cardRef.current, {
-          scale: activeFormat.w / cardRef.current.offsetWidth,
-          useCORS: true,
-          backgroundColor: null,
-          width: cardRef.current.offsetWidth,
-          height: cardRef.current.offsetHeight,
+        canvas = await html2canvas(cardEl, {
+          ...canvasOptions,
           onclone: (_doc: Document, el: HTMLElement) => {
             const vids = el.querySelectorAll('video');
             vids.forEach((v: HTMLVideoElement) => {
               const c = document.createElement('canvas');
-              c.width = v.offsetWidth;
-              c.height = v.offsetHeight;
+              c.width = cardEl.offsetWidth;
+              c.height = cardEl.offsetHeight;
               c.style.cssText = v.style.cssText;
               const cx = c.getContext('2d');
-              if (cx) cx.drawImage(video, 0, 0, c.width, c.height);
+              if (cx) {
+                cx.drawImage(video, 0, 0, c.width, c.height);
+              }
               v.parentNode?.replaceChild(c, v);
             });
           },
         });
-        const link = document.createElement('a');
-        link.download = `quote-${activeQuote + 1}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
       } else {
-        const html2canvas = (await import('html2canvas')).default;
-        const canvas = await html2canvas(cardRef.current, {
-          scale: activeFormat.w / cardRef.current.offsetWidth,
-          useCORS: true,
-          backgroundColor: null,
-          width: cardRef.current.offsetWidth,
-          height: cardRef.current.offsetHeight,
-        });
-        const link = document.createElement('a');
-        link.download = `quote-${format.replace(':','-')}-${activeQuote + 1}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        canvas = await html2canvas(cardEl, canvasOptions);
       }
+
+      const filename = `cgs-${format.replace(':','-')}-${activeQuote + 1}.png`;
+
+      // Mobile: use Web Share API so iPhone can save to Photos
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], filename, { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: 'Creator Growth Studio' });
+            return;
+          } catch {}
+        }
+        // Desktop fallback
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = url;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, 'image/png', 1.0);
+
     } catch (e) {
       console.error(e);
     } finally {
@@ -285,15 +321,24 @@ export default function DesignerPage() {
         ))}
       </div>
 
-      {/* Card Preview */}
-      <div style={{ padding: '0 24px' }}>
+      {/* Card Preview — renders at natural size, scaled down with transform */}
+      <div style={{ padding: '0 24px', display: 'flex', justifyContent: 'center' }}>
+        {/* Clipping shell — sized to scaled dimensions so it doesn't push layout */}
+        <div style={{ width: scaledW, height: scaledH, overflow: 'hidden', flexShrink: 0 }}>
+          {/* Natural-size inner — transform scales it visually */}
+          <div style={{
+            width: naturalW, height: naturalH,
+            transformOrigin: 'top left',
+            transform: `scale(${previewScale})`,
+          }}>
         <div
           ref={cardRef}
           style={{
             ...cardBgStyle,
             borderRadius: `${design.borderRadius}px`,
             padding: `${design.padding}px`,
-            aspectRatio: FORMATS.find(f => f.id === format)?.ratio ?? '1 / 1',
+            width: '100%',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
@@ -419,6 +464,8 @@ export default function DesignerPage() {
             </div>
           </div>
         </div>
+          </div>{/* end natural-size inner */}
+        </div>{/* end clipping shell */}
       </div>
 
       {/* Tap to edit hint */}
@@ -825,6 +872,26 @@ export default function DesignerPage() {
 
         {/* Action buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+          {/* Preview full size */}
+          <button
+            onClick={() => setShowPreview(true)}
+            style={{
+              width: '100%', height: '56px',
+              background: t.surface2, color: t.text,
+              border: `1px solid ${t.border2}`, borderRadius: '16px',
+              fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer',
+              letterSpacing: '-0.02em',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            View Full Size
+          </button>
+
           <button
             onClick={handleDownload}
             disabled={downloading}
@@ -892,6 +959,103 @@ export default function DesignerPage() {
         onNavigate={(href) => router.push(href)}
         isDark={isDark}
       />
+
+      {/* Full-size preview modal */}
+      {showPreview && (
+        <div
+          onClick={() => setShowPreview(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.92)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <style>{`@keyframes fadeIn { from { opacity:0 } to { opacity:1 } }`}</style>
+
+          {/* Close hint */}
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', marginBottom: '16px', fontWeight: 500 }}>
+            Tap anywhere to close
+          </p>
+
+          {/* Full-size card replica — constrained by viewport, exact aspect ratio */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              ...cardBgStyle,
+              borderRadius: `${design.borderRadius}px`,
+              padding: `${design.padding}px`,
+              aspectRatio: FORMATS.find(f => f.id === format)?.ratio ?? '1 / 1',
+              // Fit within screen: tall formats constrain by height, wide by width
+              maxHeight: ['9:16','4:5','2:3'].includes(format) ? '80vh' : 'none',
+              maxWidth: ['16:9','1:1'].includes(format) ? 'min(430px, 92vw)' : `calc(80vh * ${fw} / ${fh})`,
+              width: ['9:16','4:5','2:3'].includes(format) ? 'auto' : 'min(430px, 92vw)',
+              height: ['9:16','4:5','2:3'].includes(format) ? '80vh' : 'auto',
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+              position: 'relative', overflow: 'hidden',
+            }}
+          >
+            {/* Media background */}
+            {bgMedia?.type === 'image' && (
+              <img src={bgMedia.url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
+            )}
+            {bgMedia?.type === 'video' && (
+              <video src={bgMedia.url} autoPlay muted playsInline loop style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
+            )}
+            {bgMedia && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 1 }} />}
+
+            <p style={{
+              fontFamily: `'${design.font}', serif`,
+              color: design.textColor,
+              fontSize: `${design.fontSize ?? 24}px`,
+              lineHeight: 1.35, fontWeight: 600,
+              flex: 1, display: 'flex', alignItems: 'center',
+              position: 'relative', zIndex: 2,
+              margin: 0, wordBreak: 'break-word',
+            }}>
+              {editableTexts[activeQuote] ?? currentQuote?.text}
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+              <img src={profile.avatar} alt={profile.name} style={{ width: `${design.photoSize}px`, height: `${design.photoSize}px`, borderRadius: design.photoShape === 'circle' ? '50%' : design.photoShape === 'rounded' ? '12px' : '0', objectFit: 'cover', flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: design.textColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {profile.name}
+                  {design.verified && (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L13.8 5.4L17.6 4.2L17.2 8.1L21 9.6L18.6 12.8L21 16L17.2 17.5L17.6 21.4L13.8 20.2L12 23.6L10.2 20.2L6.4 21.4L6.8 17.5L3 16L5.4 12.8L3 9.6L6.8 8.1L6.4 4.2L10.2 5.4L12 2Z" fill="#1877F2"/><path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: design.handleColor === 'rgba(255,255,255,0.65)' && !bgMedia ? `${design.textColor}99` : design.handleColor }}>@{profile.handle}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Download / Share from preview */}
+          <div style={{ display: 'flex', gap: '12px', marginTop: '20px', width: '100%', maxWidth: '340px' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowPreview(false); handleDownload(); }}
+              style={{
+                flex: 1, height: '48px', background: '#fff', color: '#000',
+                border: 'none', borderRadius: '14px', fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer',
+              }}
+            >
+              Download
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowPreview(false); }}
+              style={{
+                flex: 1, height: '48px', background: 'rgba(255,255,255,0.12)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.2)', borderRadius: '14px', fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Back to Edit
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
