@@ -366,7 +366,7 @@ export default function DesignerPage() {
         canvas = await html2canvas(cardEl, canvasOptions);
       }
 
-      const filename = `cgs-${format.replace(':','-')}-${activeQuote + 1}.png`;
+      const filename = `CreatorGrowthStudio-${format.replace(':','-')}.png`;
 
       // Convert synchronously so iOS Web Share gesture chain isn't broken
       const dataUrl = canvas.toDataURL('image/png', 1.0);
