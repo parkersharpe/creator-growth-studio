@@ -114,8 +114,8 @@ export default function DesignerPage() {
     const vid = document.createElement('video');
     vid.src = url;
     vid.onloadedmetadata = () => {
-      if (vid.duration < 7) {
-        setVideoError(`Video must be at least 7 seconds. Your clip is ${vid.duration.toFixed(1)}s — only the first 7 seconds will loop.`);
+      if (vid.duration > 7) {
+        setVideoError(`Video must be 7 seconds or less. Your clip is ${vid.duration.toFixed(1)}s — trim it down and re-upload.`);
         URL.revokeObjectURL(url);
       } else {
         setBgMedia({ type: 'video', url, duration: vid.duration });
@@ -653,7 +653,7 @@ export default function DesignerPage() {
                       </div>
                     ) : (
                       <div style={{ fontSize: '0.75rem', color: t.text2, textAlign: 'center', padding: '6px 0' }}>
-                        Full clip is 7 seconds — looping entire video
+                        {bgMedia.duration ? `${bgMedia.duration.toFixed(1)}s clip` : 'Full clip'} — looping entire video
                       </div>
                     )}
                   </div>
@@ -680,7 +680,7 @@ export default function DesignerPage() {
                     <path d="M10 8l6 4-6 4V8z" fill={t.text3} stroke="none"/>
                   </svg>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.text2 }}>Upload Video</span>
-                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Max 7 seconds used</span>
+                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Max 7 seconds</span>
                   <input type="file" accept="video/*" onChange={handleVideoUpload} style={{ display: 'none' }} />
                 </label>
               )}

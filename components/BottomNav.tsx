@@ -37,6 +37,16 @@ const TABS = [
     ),
   },
   {
+    id: 'saved',
+    label: 'Saved',
+    href: '/saved',
+    icon: (active: boolean, color: string) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill={active ? color : 'none'} fillOpacity={active ? 0.2 : 0}/>
+      </svg>
+    ),
+  },
+  {
     id: 'brand',
     label: 'Brand',
     href: '/brand',

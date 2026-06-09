@@ -30,6 +30,7 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false);
   const [barVisible, setBarVisible] = useState(false);
   const [barAnimating, setBarAnimating] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [voiceSheet, setVoiceSheet] = useState(false);
   const [nicheSheet, setNicheSheet] = useState(false);
   const [customVoice, setCustomVoice] = useState('');
@@ -124,6 +125,15 @@ export default function HomePage() {
     navigator.clipboard.writeText(quotes[selectedIdx].text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  function handleSave() {
+    if (selectedIdx === null) return;
+    const q = quotes[selectedIdx];
+    const saved = JSON.parse(localStorage.getItem('cgs_saved') || '[]');
+    const newItem = { id: `q-${Date.now()}`, text: q.text, type: 'quote', savedAt: Date.now() };
+    localStorage.setItem('cgs_saved', JSON.stringify([...saved, newItem]));
+    setSavedIds(prev => new Set([...prev, selectedIdx]));
   }
 
   function selectVoice(v: VoiceKey) {
@@ -443,6 +453,19 @@ export default function HomePage() {
             ? 'slideDown 0.24s cubic-bezier(0.4, 0, 0.6, 1) forwards'
             : 'slideUp 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         }}>
+          <button
+            onClick={handleSave}
+            style={{
+              width: '44px', height: '44px', background: selectedIdx !== null && savedIds.has(selectedIdx) ? '#7c3aed18' : t.surface2,
+              border: `1px solid ${selectedIdx !== null && savedIds.has(selectedIdx) ? '#7c3aed' : t.border}`,
+              borderRadius: '12px', cursor: 'pointer', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={selectedIdx !== null && savedIds.has(selectedIdx) ? '#7c3aed' : 'none'} stroke={selectedIdx !== null && savedIds.has(selectedIdx) ? '#7c3aed' : t.text2} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+            </svg>
+          </button>
           <button
             onClick={handleCopy}
             style={{

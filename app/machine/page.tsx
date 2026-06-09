@@ -34,6 +34,7 @@ export default function MachinePage() {
   });
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
 
   const t = isDark ? DARK : LIGHT;
 
@@ -71,6 +72,15 @@ export default function MachinePage() {
     navigator.clipboard.writeText(text);
     setCopied(idx);
     setTimeout(() => setCopied(null), 1800);
+  }
+
+  function handleSave(text: string, idx: number) {
+    const key = `${activeType}-${idx}`;
+    const existing = JSON.parse(localStorage.getItem('cgs_saved') || '[]');
+    const typeMap: Record<string, string> = { tweets: 'tweet', hooks: 'hook', captions: 'caption', threads: 'thread', questions: 'question' };
+    const newItem = { id: `m-${Date.now()}`, text, type: typeMap[activeType] || activeType, savedAt: Date.now() };
+    localStorage.setItem('cgs_saved', JSON.stringify([...existing, newItem]));
+    setSaved(prev => new Set([...prev, key]));
   }
 
   const voiceLabel = VOICES.find(v => v.id === voice)?.label || 'Parker Sharpe';
@@ -185,18 +195,33 @@ export default function MachinePage() {
                     </span>
                     <p style={{ fontSize: '0.88rem', lineHeight: 1.6, color: t.text, margin: 0 }}>{item}</p>
                   </div>
-                  <button
-                    onClick={() => handleCopy(item, i)}
-                    style={{
-                      flexShrink: 0, padding: '7px 13px', background: t.pill,
-                      border: `1px solid ${t.pillBrd}`, borderRadius: '20px',
-                      fontSize: '0.72rem', fontWeight: 600,
-                      color: copied === i ? '#16a34a' : t.pillTxt, cursor: 'pointer',
-                      transition: 'color 0.15s',
-                    }}
-                  >
-                    {copied === i ? 'Copied' : 'Copy'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => handleSave(item, i)}
+                      style={{
+                        width: '32px', height: '32px', background: saved.has(`${activeType}-${i}`) ? '#7c3aed18' : t.pill,
+                        border: `1px solid ${saved.has(`${activeType}-${i}`) ? '#7c3aed' : t.pillBrd}`,
+                        borderRadius: '20px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill={saved.has(`${activeType}-${i}`) ? '#7c3aed' : 'none'} stroke={saved.has(`${activeType}-${i}`) ? '#7c3aed' : t.pillTxt} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleCopy(item, i)}
+                      style={{
+                        flexShrink: 0, padding: '7px 13px', background: t.pill,
+                        border: `1px solid ${t.pillBrd}`, borderRadius: '20px',
+                        fontSize: '0.72rem', fontWeight: 600,
+                        color: copied === i ? '#16a34a' : t.pillTxt, cursor: 'pointer',
+                        transition: 'color 0.15s',
+                      }}
+                    >
+                      {copied === i ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
