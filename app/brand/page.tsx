@@ -101,18 +101,18 @@ export default function BrandPage() {
 
   const PLANS = [
     {
-      name: 'Free', price: '$0', desc: 'Get started',
-      features: ['10 quotes/day', '5 machine items', 'Basic designer'],
-      cta: 'Current plan', highlight: false,
+      name: 'Starter', price: '$4.99/mo', desc: 'Try it out',
+      features: ['50 quotes/day', '20 machine items/day', 'Basic designer', 'Download images'],
+      cta: 'Upgrade', highlight: false,
     },
     {
-      name: 'Creator', price: '$19/mo', desc: 'Most popular',
-      features: ['Unlimited quotes', '100 machine items/day', 'Full designer', 'Download images'],
+      name: 'Creator', price: '$9.99/mo', desc: 'Most popular',
+      features: ['Unlimited quotes', 'Unlimited machine', 'Full designer + video', 'Priority support'],
       cta: 'Upgrade', highlight: true,
     },
     {
-      name: 'Pro', price: '$49/mo', desc: 'Power users',
-      features: ['Everything in Creator', 'Unlimited machine', 'Multi-brand kits', 'Priority support'],
+      name: 'Pro', price: '$19.99/mo', desc: 'Power users',
+      features: ['Everything in Creator', 'Multi-brand kits', 'Custom voice training', 'White-label exports'],
       cta: 'Upgrade', highlight: false,
     },
   ];
