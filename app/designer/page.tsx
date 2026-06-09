@@ -158,6 +158,126 @@ export default function DesignerPage() {
     }
   }
 
+  async function handleVideoExport() {
+    if (!videoRef.current) return;
+    setDownloading(true);
+
+    const activeFormat = FORMATS.find(f => f.id === format)!;
+    const W = activeFormat.w;
+    const H = activeFormat.h;
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = W;
+    offscreen.height = H;
+    const ctx = offscreen.getContext('2d')!;
+
+    const video = videoRef.current;
+    video.currentTime = clipStart;
+    await new Promise<void>(r => { video.onseeked = () => r(); });
+    video.play();
+
+    // Load avatar image onto offscreen canvas
+    const avatarImg = new window.Image();
+    avatarImg.crossOrigin = 'anonymous';
+    avatarImg.src = profile.avatar;
+    await new Promise<void>(r => { avatarImg.onload = () => r(); avatarImg.onerror = () => r(); });
+
+    // Scale factors from card design coords to export resolution
+    const scaleX = W / naturalW;
+    const scaleY = H / naturalH;
+    const pad = design.padding * scaleX;
+    const fontSize = (design.fontSize ?? 24) * scaleX;
+    const photoSize = design.photoSize * scaleX;
+
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm';
+
+    const stream = offscreen.captureStream(30);
+    const recorder = new MediaRecorder(stream, { mimeType });
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cgs-${format.replace(':','-')}.webm`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      setDownloading(false);
+    };
+
+    recorder.start(100);
+    const startTime = performance.now();
+
+    function drawFrame() {
+      const elapsed = performance.now() - startTime;
+      if (elapsed >= clipDuration * 1000) {
+        recorder.stop();
+        video.pause();
+        return;
+      }
+
+      // Video frame
+      ctx.drawImage(video, 0, 0, W, H);
+
+      // Dark overlay
+      ctx.fillStyle = 'rgba(0,0,0,0.38)';
+      ctx.fillRect(0, 0, W, H);
+
+      // Quote text — word wrap
+      const quoteText = editableTexts[activeQuote] ?? currentQuote?.text ?? '';
+      ctx.fillStyle = design.textColor;
+      ctx.font = `600 ${fontSize}px '${design.font}', serif`;
+      ctx.textBaseline = 'alphabetic';
+      const maxW = W - pad * 2;
+      const lineH = fontSize * 1.35;
+      const words = quoteText.split(' ');
+      const lines: string[] = [];
+      let cur = '';
+      for (const w of words) {
+        const test = cur ? `${cur} ${w}` : w;
+        if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+        else cur = test;
+      }
+      if (cur) lines.push(cur);
+
+      const totalH = lines.length * lineH;
+      const textStartY = (H - totalH) / 2 - photoSize / 2;
+      lines.forEach((line, i) => ctx.fillText(line, pad, textStartY + i * lineH + fontSize));
+
+      // Profile row
+      const profileY = H - pad - photoSize;
+      ctx.save();
+      ctx.beginPath();
+      if (design.photoShape === 'circle') {
+        ctx.arc(pad + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
+      } else {
+        ctx.roundRect?.(pad, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 : 0);
+      }
+      ctx.clip();
+      ctx.drawImage(avatarImg, pad, profileY, photoSize, photoSize);
+      ctx.restore();
+
+      const nameSize = Math.round(16 * scaleX);
+      const handleSize = Math.round(13 * scaleX);
+      const textX = pad + photoSize + 10 * scaleX;
+      ctx.fillStyle = design.textColor;
+      ctx.font = `700 ${nameSize}px DM Sans, sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(profile.name, textX, profileY + photoSize * 0.35);
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.font = `500 ${handleSize}px DM Sans, sans-serif`;
+      ctx.fillText(`@${profile.handle}`, textX, profileY + photoSize * 0.72);
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    requestAnimationFrame(drawFrame);
+  }
+
   function removeBgMedia() {
     if (bgMedia?.url) URL.revokeObjectURL(bgMedia.url);
     setBgMedia(null);
@@ -936,7 +1056,7 @@ export default function DesignerPage() {
           </button>
 
           <button
-            onClick={handleDownload}
+            onClick={bgMedia?.type === 'video' ? handleVideoExport : handleDownload}
             disabled={downloading}
             style={{
               width: '100%', height: '56px', background: downloading ? t.surface2 : t.btnBg,
@@ -1079,7 +1199,7 @@ export default function DesignerPage() {
           {/* Download / Share from preview */}
           <div style={{ display: 'flex', gap: '12px', marginTop: '20px', width: '100%', maxWidth: '340px' }}>
             <button
-              onClick={(e) => { e.stopPropagation(); setShowPreview(false); handleDownload(); }}
+              onClick={(e) => { e.stopPropagation(); setShowPreview(false); bgMedia?.type === 'video' ? handleVideoExport() : handleDownload(); }}
               style={{
                 flex: 1, height: '48px', background: '#fff', color: '#000',
                 border: 'none', borderRadius: '14px', fontSize: '0.88rem', fontWeight: 800, cursor: 'pointer',
