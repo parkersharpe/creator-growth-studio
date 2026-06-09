@@ -47,6 +47,12 @@ export default function MachinePage() {
 
     const savedVoice = localStorage.getItem('cgs_voice');
     if (savedVoice) setVoice(savedVoice as VoiceKey);
+
+    const savedContent = localStorage.getItem('cgs_machine_content');
+    if (savedContent) { try { setContent(JSON.parse(savedContent)); } catch {} }
+
+    const savedType = localStorage.getItem('cgs_machine_type');
+    if (savedType) setActiveType(savedType as MachineType);
   }, []);
 
   async function handleGenerate(type: MachineType) {
@@ -59,7 +65,11 @@ export default function MachinePage() {
       });
       const data = await res.json();
       if (Array.isArray(data)) {
-        setContent(prev => ({ ...prev, [type]: data }));
+        setContent(prev => {
+          const next = { ...prev, [type]: data };
+          localStorage.setItem('cgs_machine_content', JSON.stringify(next));
+          return next;
+        });
       }
     } catch (e) {
       console.error(e);
@@ -106,7 +116,7 @@ export default function MachinePage() {
         {TYPES.map(type => (
           <button
             key={type.id}
-            onClick={() => setActiveType(type.id)}
+            onClick={() => { setActiveType(type.id); localStorage.setItem('cgs_machine_type', type.id); }}
             style={{
               flexShrink: 0, padding: '9px 20px', borderRadius: '20px', cursor: 'pointer',
               background: activeType === type.id ? t.pillActive : t.pill,
