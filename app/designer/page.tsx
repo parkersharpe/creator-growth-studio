@@ -176,19 +176,38 @@ export default function DesignerPage() {
     const activeFormat = FORMATS.find(f => f.id === format)!;
 
     const cardEl = cardRef.current;
-    // cardEl renders at naturalW px wide — scale up to export resolution
-    const scale = activeFormat.w / naturalW;
+
+    // Temporarily remove CSS transform from the scale wrapper so html2canvas
+    // captures the card at its true natural dimensions without distortion
+    const scaleWrapper = cardEl.parentElement as HTMLElement | null;
+    const clippingShell = scaleWrapper?.parentElement as HTMLElement | null;
+    let prevWrapperTransform = '';
+    let prevShellOverflow = '';
+    let prevShellW = '';
+    let prevShellH = '';
+    if (scaleWrapper && clippingShell) {
+      prevWrapperTransform = scaleWrapper.style.transform;
+      prevShellOverflow = clippingShell.style.overflow;
+      prevShellW = clippingShell.style.width;
+      prevShellH = clippingShell.style.height;
+      scaleWrapper.style.transform = 'none';
+      clippingShell.style.overflow = 'visible';
+      clippingShell.style.width = naturalW + 'px';
+      clippingShell.style.height = naturalH + 'px';
+    }
+
+    const exportScale = activeFormat.w / naturalW;
 
     try {
       const html2canvas = (await import('html2canvas')).default;
 
       const canvasOptions = {
-        scale,
+        scale: exportScale,
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
-        width: cardEl.offsetWidth,
-        height: cardEl.offsetHeight,
+        width: naturalW,
+        height: naturalH,
         logging: false,
       };
 
@@ -201,13 +220,11 @@ export default function DesignerPage() {
             const vids = el.querySelectorAll('video');
             vids.forEach((v: HTMLVideoElement) => {
               const c = document.createElement('canvas');
-              c.width = cardEl.offsetWidth;
-              c.height = cardEl.offsetHeight;
+              c.width = naturalW;
+              c.height = naturalH;
               c.style.cssText = v.style.cssText;
               const cx = c.getContext('2d');
-              if (cx) {
-                cx.drawImage(video, 0, 0, c.width, c.height);
-              }
+              if (cx) cx.drawImage(video, 0, 0, c.width, c.height);
               v.parentNode?.replaceChild(c, v);
             });
           },
@@ -240,6 +257,13 @@ export default function DesignerPage() {
     } catch (e) {
       console.error(e);
     } finally {
+      // Restore transform
+      if (scaleWrapper && clippingShell) {
+        scaleWrapper.style.transform = prevWrapperTransform;
+        clippingShell.style.overflow = prevShellOverflow;
+        clippingShell.style.width = prevShellW;
+        clippingShell.style.height = prevShellH;
+      }
       setDownloading(false);
     }
   }
