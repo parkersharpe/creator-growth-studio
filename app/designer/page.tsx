@@ -941,7 +941,7 @@ export default function DesignerPage() {
               letterSpacing: '-0.02em', transition: 'all 0.15s',
             }}
           >
-            {downloading ? 'Saving...' : 'Download PNG'}
+            {downloading ? 'Saving...' : bgMedia?.type === 'video' ? 'Download Video' : 'Download Image'}
           </button>
 
           {/* Instagram Share */}
