@@ -80,7 +80,7 @@ export default function MachinePage() {
     const typeMap: Record<string, string> = { tweets: 'tweet', hooks: 'hook', captions: 'caption', threads: 'thread', questions: 'question' };
     const newItem = { id: `m-${Date.now()}`, text, type: typeMap[activeType] || activeType, savedAt: Date.now() };
     localStorage.setItem('cgs_saved', JSON.stringify([...existing, newItem]));
-    setSaved(prev => new Set([...prev, key]));
+    setSaved(prev => new Set(Array.from(prev).concat(key)));
   }
 
   const voiceLabel = VOICES.find(v => v.id === voice)?.label || 'Parker Sharpe';

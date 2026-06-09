@@ -133,7 +133,7 @@ export default function HomePage() {
     const saved = JSON.parse(localStorage.getItem('cgs_saved') || '[]');
     const newItem = { id: `q-${Date.now()}`, text: q.text, type: 'quote', savedAt: Date.now() };
     localStorage.setItem('cgs_saved', JSON.stringify([...saved, newItem]));
-    setSavedIds(prev => new Set([...prev, selectedIdx]));
+    setSavedIds(prev => new Set(Array.from(prev).concat(selectedIdx)));
   }
 
   function selectVoice(v: VoiceKey) {
