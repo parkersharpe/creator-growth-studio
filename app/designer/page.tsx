@@ -177,8 +177,7 @@ export default function DesignerPage() {
 
     const cardEl = cardRef.current;
 
-    // Temporarily remove CSS transform from the scale wrapper so html2canvas
-    // captures the card at its true natural dimensions without distortion
+    // Remove CSS transform so html2canvas captures at true size
     const scaleWrapper = cardEl.parentElement as HTMLElement | null;
     const clippingShell = scaleWrapper?.parentElement as HTMLElement | null;
     let prevWrapperTransform = '';
@@ -196,7 +195,13 @@ export default function DesignerPage() {
       clippingShell.style.height = naturalH + 'px';
     }
 
-    const exportScale = activeFormat.w / naturalW;
+    // Wait one frame so browser repaints at full size before we measure
+    await new Promise(r => requestAnimationFrame(r));
+
+    // Measure actual rendered dimensions AFTER removing transform
+    const actualW = cardEl.offsetWidth;
+    const actualH = cardEl.offsetHeight;
+    const exportScale = activeFormat.w / actualW;
 
     try {
       const html2canvas = (await import('html2canvas')).default;
@@ -206,8 +211,8 @@ export default function DesignerPage() {
         useCORS: true,
         allowTaint: true,
         backgroundColor: null,
-        width: naturalW,
-        height: naturalH,
+        width: actualW,
+        height: actualH,
         logging: false,
       };
 
@@ -220,8 +225,8 @@ export default function DesignerPage() {
             const vids = el.querySelectorAll('video');
             vids.forEach((v: HTMLVideoElement) => {
               const c = document.createElement('canvas');
-              c.width = naturalW;
-              c.height = naturalH;
+              c.width = actualW;
+              c.height = actualH;
               c.style.cssText = v.style.cssText;
               const cx = c.getContext('2d');
               if (cx) cx.drawImage(video, 0, 0, c.width, c.height);
