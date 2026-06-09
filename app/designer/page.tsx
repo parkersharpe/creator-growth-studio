@@ -128,14 +128,13 @@ export default function DesignerPage() {
     const vid = document.createElement('video');
     vid.src = url;
     vid.onloadedmetadata = () => {
-      if (vid.duration > 7) {
-        setVideoError(`Video must be 7 seconds or less. Your clip is ${vid.duration.toFixed(1)}s — trim it down and re-upload.`);
+      if (vid.duration > 30) {
+        setVideoError(`Video must be 30 seconds or less. Your clip is ${vid.duration.toFixed(1)}s — trim it and re-upload.`);
         URL.revokeObjectURL(url);
       } else {
         setBgMedia({ type: 'video', url, duration: vid.duration });
         setClipStart(0);
         setVideoError(null);
-        // Auto-set text white so it's readable over video
         updateDesign({ textColor: '#FFFFFF', handleColor: 'rgba(255,255,255,0.65)' });
       }
     };
@@ -618,6 +617,19 @@ export default function DesignerPage() {
               )}
               {bgMedia?.type === 'video' ? (
                 <div>
+                  {/* 7s tip banner */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    background: 'linear-gradient(135deg, #16a34a18, #16a34a08)',
+                    border: '1px solid #16a34a40',
+                    borderRadius: '12px', padding: '10px 14px', marginBottom: '10px',
+                  }}>
+                    <span style={{ fontSize: '1.1rem' }}>⚡</span>
+                    <p style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
+                      7-second clips get <span style={{ fontWeight: 800 }}>3× more views</span> — pick your best 7s below
+                    </p>
+                  </div>
+
                   {/* Clip trimmer */}
                   <div style={{
                     background: t.surface2, border: `1px solid ${t.border}`,
@@ -625,7 +637,9 @@ export default function DesignerPage() {
                   }}>
                     {/* Header row */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: t.text }}>Pick your 7-second clip</span>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: t.text }}>
+                        {bgMedia.duration && bgMedia.duration <= 7 ? 'Looping full clip' : 'Pick your 7-second clip'}
+                      </span>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <span style={{
                           fontSize: '0.68rem', fontWeight: 700, color: '#fff',
@@ -639,7 +653,7 @@ export default function DesignerPage() {
                       </div>
                     </div>
 
-                    {/* Timeline bar */}
+                    {/* Timeline bar — show whenever video is longer than 7s */}
                     {bgMedia.duration && bgMedia.duration > 7 ? (
                       <div>
                         <div style={{ position: 'relative', height: '36px', marginBottom: '10px' }}>
@@ -700,7 +714,7 @@ export default function DesignerPage() {
                       </div>
                     ) : (
                       <div style={{ fontSize: '0.75rem', color: t.text2, textAlign: 'center', padding: '6px 0' }}>
-                        {bgMedia.duration ? `${bgMedia.duration.toFixed(1)}s clip` : 'Full clip'} — looping entire video
+                        Your clip is {bgMedia.duration?.toFixed(1)}s — looping the full thing ✓
                       </div>
                     )}
                   </div>
@@ -727,7 +741,7 @@ export default function DesignerPage() {
                     <path d="M10 8l6 4-6 4V8z" fill={t.text3} stroke="none"/>
                   </svg>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.text2 }}>Upload Video</span>
-                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Max 7 seconds</span>
+                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Up to 30 seconds</span>
                   <input type="file" accept="video/*" onChange={handleVideoUpload} style={{ display: 'none' }} />
                 </label>
               )}
