@@ -72,6 +72,12 @@ export default function DesignerPage() {
     const savedDesign = localStorage.getItem('cgs_design');
     if (savedDesign) { try { setDesign(JSON.parse(savedDesign)); } catch {} }
 
+    const selectedQuoteIdx = localStorage.getItem('cgs_selected_quote');
+    if (selectedQuoteIdx !== null) {
+      setActiveQuote(Number(selectedQuoteIdx));
+      localStorage.removeItem('cgs_selected_quote');
+    }
+
     Object.values(FONTS).forEach((f) => {
       const id = `gf-${f.label}`;
       if (!document.getElementById(id)) {

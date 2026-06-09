@@ -28,6 +28,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [rewriting, setRewriting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [barVisible, setBarVisible] = useState(false);
+  const [barAnimating, setBarAnimating] = useState(false);
   const [voiceSheet, setVoiceSheet] = useState(false);
   const [nicheSheet, setNicheSheet] = useState(false);
   const [customVoice, setCustomVoice] = useState('');
@@ -147,7 +149,7 @@ export default function HomePage() {
   const selectedQuote = selectedIdx !== null ? quotes[selectedIdx] : null;
 
   return (
-    <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: '96px', transition: 'background 0.2s' }}>
+    <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: barVisible ? '200px' : '96px', transition: 'padding-bottom 0.3s ease, background 0.2s' }}>
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -256,33 +258,6 @@ export default function HomePage() {
           {loading ? 'Generating...' : `Generate ${count} Quotes`}
         </button>
 
-        {/* Selected quote actions */}
-        {selectedQuote && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-            <button
-              onClick={handleCopy}
-              style={{
-                flex: 1, height: '44px', background: t.surface,
-                border: `1px solid ${t.border}`, borderRadius: '12px',
-                fontSize: '0.82rem', fontWeight: 600, color: t.text, cursor: 'pointer',
-                boxShadow: t.shadow,
-              }}
-            >
-              {copied ? 'Copied!' : 'Copy Quote'}
-            </button>
-            <button
-              onClick={handleRewrite}
-              disabled={rewriting}
-              style={{
-                flex: 1, height: '44px', background: t.pill,
-                border: `1px solid ${t.pillBrd}`, borderRadius: '12px',
-                fontSize: '0.82rem', fontWeight: 600, color: rewriting ? t.text3 : t.text, cursor: rewriting ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {rewriting ? 'Rewriting...' : 'Make More Viral'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Quote list */}
@@ -295,7 +270,18 @@ export default function HomePage() {
             key={i}
             quote={q}
             selected={selectedIdx === i}
-            onClick={() => setSelectedIdx(selectedIdx === i ? null : i)}
+            onClick={() => {
+              const next = selectedIdx === i ? null : i;
+              if (next === null) {
+                // animate out then hide
+                setBarAnimating(true);
+                setTimeout(() => { setSelectedIdx(null); setBarVisible(false); setBarAnimating(false); }, 260);
+              } else {
+                setSelectedIdx(next);
+                setBarVisible(true);
+                setBarAnimating(false);
+              }
+            }}
             isDark={isDark}
           />
         ))}
@@ -428,6 +414,80 @@ export default function HomePage() {
           ))}
         </div>
       </Sheet>
+
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateX(-50%) translateY(110%); opacity: 0; }
+          to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+        }
+        @keyframes slideDown {
+          from { transform: translateX(-50%) translateY(0);    opacity: 1; }
+          to   { transform: translateX(-50%) translateY(110%); opacity: 0; }
+        }
+      `}</style>
+
+      {/* Floating action bar — slides up/down */}
+      {(barVisible || barAnimating) && (
+        <div style={{
+          position: 'fixed', bottom: '84px', left: '50%',
+          width: 'calc(100% - 32px)', maxWidth: '398px',
+          background: isDark ? 'rgba(18,18,20,0.95)' : 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(20px)',
+          border: `1px solid ${t.border2}`,
+          borderRadius: '20px',
+          padding: '10px',
+          display: 'flex', gap: '8px',
+          boxShadow: '0 -4px 40px rgba(0,0,0,0.12), 0 8px 32px rgba(0,0,0,0.1)',
+          zIndex: 100,
+          animation: barAnimating
+            ? 'slideDown 0.24s cubic-bezier(0.4, 0, 0.6, 1) forwards'
+            : 'slideUp 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        }}>
+          <button
+            onClick={handleCopy}
+            style={{
+              flex: 1, height: '44px', background: t.surface2,
+              border: `1px solid ${t.border}`, borderRadius: '12px',
+              fontSize: '0.78rem', fontWeight: 600, color: t.text, cursor: 'pointer',
+            }}
+          >
+            {copied ? '✓ Copied' : 'Copy'}
+          </button>
+          <button
+            onClick={handleRewrite}
+            disabled={rewriting}
+            style={{
+              flex: 1, height: '44px', background: t.surface2,
+              border: `1px solid ${t.border}`, borderRadius: '12px',
+              fontSize: '0.78rem', fontWeight: 600, color: rewriting ? t.text3 : t.text,
+              cursor: rewriting ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {rewriting ? '...' : 'More Viral'}
+          </button>
+          <button
+            onClick={() => {
+              if (selectedIdx === null) return;
+              localStorage.setItem('cgs_selected_quote', String(selectedIdx));
+              router.push('/designer');
+            }}
+            style={{
+              flex: 2, height: '44px',
+              background: t.btnBg, color: t.btnTxt,
+              border: 'none', borderRadius: '12px',
+              fontSize: '0.82rem', fontWeight: 800, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="3"/>
+              <path d="M3 9h18M9 21V9"/>
+            </svg>
+            Design This
+          </button>
+        </div>
+      )}
 
       <BottomNav
         active="generate"
