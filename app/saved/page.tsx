@@ -145,26 +145,22 @@ export default function SavedPage() {
                     {TYPE_LABELS[item.type]}
                   </span>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    {item.type === 'quote' && (
-                      <button
-                        onClick={() => {
-                          // Store text as a one-off quote for designer
-                          const quotes = JSON.parse(localStorage.getItem('cgs_quotes') || '[]');
-                          // Prepend saved item as first quote so index 0 is selected
-                          const injected = [{ text: item.text, virality: 90, tags: [] }, ...quotes];
-                          localStorage.setItem('cgs_quotes', JSON.stringify(injected));
-                          localStorage.setItem('cgs_selected_quote', '0');
-                          router.push('/designer');
-                        }}
-                        style={{
-                          padding: '5px 11px', background: t.btnBg, border: 'none',
-                          borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
-                          color: t.btnTxt, cursor: 'pointer',
-                        }}
-                      >
-                        Design
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        const quotes = JSON.parse(localStorage.getItem('cgs_quotes') || '[]');
+                        const injected = [{ text: item.text, virality: 90, tags: [] }, ...quotes];
+                        localStorage.setItem('cgs_quotes', JSON.stringify(injected));
+                        localStorage.setItem('cgs_selected_quote', '0');
+                        router.push('/designer');
+                      }}
+                      style={{
+                        padding: '5px 11px', background: t.btnBg, border: 'none',
+                        borderRadius: '20px', fontSize: '0.7rem', fontWeight: 700,
+                        color: t.btnTxt, cursor: 'pointer',
+                      }}
+                    >
+                      Design
+                    </button>
                     <button
                       onClick={() => handleCopy(item.text, item.id)}
                       style={{

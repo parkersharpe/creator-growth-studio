@@ -232,6 +232,23 @@ export default function MachinePage() {
                     >
                       {copied === i ? 'Copied' : 'Copy'}
                     </button>
+                    <button
+                      onClick={() => {
+                        const quotes = JSON.parse(localStorage.getItem('cgs_quotes') || '[]');
+                        const injected = [{ text: item, virality: 90, tags: [] }, ...quotes];
+                        localStorage.setItem('cgs_quotes', JSON.stringify(injected));
+                        localStorage.setItem('cgs_selected_quote', '0');
+                        router.push('/designer');
+                      }}
+                      style={{
+                        flexShrink: 0, padding: '7px 13px', background: t.btnBg,
+                        border: 'none', borderRadius: '20px',
+                        fontSize: '0.72rem', fontWeight: 700,
+                        color: t.btnTxt, cursor: 'pointer',
+                      }}
+                    >
+                      Design
+                    </button>
                   </div>
                 </div>
               ))}
