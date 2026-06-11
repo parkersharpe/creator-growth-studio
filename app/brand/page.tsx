@@ -34,6 +34,7 @@ export default function BrandPage() {
   const [voiceSheet, setVoiceSheet] = useState(false);
   const [nicheSheet, setNicheSheet] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
 
   const t = isDark ? DARK : LIGHT;
 
@@ -90,6 +91,23 @@ export default function BrandPage() {
     localStorage.setItem('cgs_voice', kit.voice);
   }
 
+  async function handleUpgrade(plan: string) {
+    setCheckingOut(plan);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: plan.toLowerCase(), email: '' }),
+      });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch {
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setCheckingOut(null);
+    }
+  }
+
   function deleteKit(id: string) {
     const updated = kits.filter(k => k.id !== id);
     setKits(updated);
@@ -101,12 +119,12 @@ export default function BrandPage() {
 
   const PLANS = [
     {
-      name: 'Starter', price: '$4.99/mo', desc: 'Try it out',
+      name: 'Starter', price: '$9.99/mo', desc: 'Get started',
       features: ['50 quotes/day', '20 machine items/day', 'Basic designer', 'Download images'],
       cta: 'Upgrade', highlight: false,
     },
     {
-      name: 'Creator', price: '$9.99/mo', desc: 'Most popular',
+      name: 'Creator', price: '$14.99/mo', desc: 'Most popular',
       features: ['Unlimited quotes', 'Unlimited machine', 'Full designer + video', 'Priority support'],
       cta: 'Upgrade', highlight: true,
     },
@@ -362,16 +380,19 @@ export default function BrandPage() {
                     ))}
                   </ul>
                   <button
+                    onClick={() => plan.cta === 'Upgrade' && handleUpgrade(plan.name)}
+                    disabled={checkingOut === plan.name.toLowerCase()}
                     style={{
-                      width: '100%', padding: '12px', borderRadius: '12px', cursor: 'pointer',
+                      width: '100%', padding: '12px', borderRadius: '12px',
+                      cursor: plan.cta === 'Upgrade' ? 'pointer' : 'default',
                       background: isHighlight ? (isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)') : t.surface2,
                       color: isHighlight ? planText : t.text2,
                       border: isHighlight ? `1px solid ${isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.25)'}` : `1px solid ${t.border}`,
                       fontSize: '0.84rem', fontWeight: 700, fontFamily: 'inherit',
-                      letterSpacing: '-0.01em',
+                      letterSpacing: '-0.01em', opacity: checkingOut === plan.name.toLowerCase() ? 0.6 : 1,
                     }}
                   >
-                    {plan.cta}
+                    {checkingOut === plan.name.toLowerCase() ? 'Loading…' : plan.cta}
                   </button>
                 </div>
               );
