@@ -123,7 +123,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#050507', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: '#f5f5f7', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
         @keyframes slideInRight {
           from { opacity: 0; transform: translateX(40px); }
@@ -146,7 +146,7 @@ export default function OnboardingPage() {
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.1); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0.08); }
           50% { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
         }
         @keyframes spin-slow {
@@ -167,7 +167,7 @@ export default function OnboardingPage() {
       {/* Top nav */}
       <div style={{ padding: '52px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {stepIndex > 0 ? (
-          <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', fontFamily: 'inherit', padding: '8px 0' }}>
+          <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(0,0,0,0.35)', fontSize: '0.85rem', fontFamily: 'inherit', padding: '8px 0' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
             <div key={s} style={{
               width: i === stepIndex ? '20px' : '6px',
               height: '6px', borderRadius: '3px',
-              background: i <= stepIndex ? '#ffffff' : 'rgba(255,255,255,0.15)',
+              background: i <= stepIndex ? '#ffffff' : 'rgba(0,0,0,0.12)',
               transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
             }} />
           ))}
@@ -200,28 +200,28 @@ export default function OnboardingPage() {
               {/* Avatar */}
               {user?.imageUrl && (
                 <div style={{ marginBottom: '28px', animation: 'float 3s ease-in-out infinite' }}>
-                  <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 0 40px rgba(255,255,255,0.08)' }}>
+                  <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(0,0,0,0.12)', boxShadow: '0 0 40px rgba(0,0,0,0.07)' }}>
                     <img src={user.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 </div>
               )}
 
               <div style={{ marginBottom: '8px', animation: 'fadeUp 0.5s ease forwards' }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Welcome</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Welcome</span>
               </div>
 
-              <h1 style={{ fontSize: '2.6rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.05em', lineHeight: 1.1, marginBottom: '16px', animation: 'fadeUp 0.5s 0.1s ease both' }}>
+              <h1 style={{ fontSize: '2.6rem', fontWeight: 900, color: '#000', letterSpacing: '-0.05em', lineHeight: 1.1, marginBottom: '16px', animation: 'fadeUp 0.5s 0.1s ease both' }}>
                 Hey {firstName},<br />let's build<br />your studio. ✦
               </h1>
 
-              <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: '40px', animation: 'fadeUp 0.5s 0.2s ease both' }}>
+              <p style={{ fontSize: '1rem', color: 'rgba(0,0,0,0.35)', lineHeight: 1.6, marginBottom: '40px', animation: 'fadeUp 0.5s 0.2s ease both' }}>
                 Takes 60 seconds. We'll set up your AI voice, your niche, and get you creating.
               </p>
 
               {/* Feature pills */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '40px', animation: 'fadeUp 0.5s 0.3s ease both' }}>
                 {['AI content in your voice', 'Designer templates', 'Post-ready in 60s'].map(f => (
-                  <span key={f} style={{ padding: '6px 12px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                  <span key={f} style={{ padding: '6px 12px', borderRadius: '20px', background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.07)', fontSize: '0.75rem', color: 'rgba(0,0,0,0.45)', fontWeight: 500 }}>
                     ✦ {f}
                   </span>
                 ))}
@@ -238,24 +238,24 @@ export default function OnboardingPage() {
         {step === 'handle' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 1 of 4</p>
-              <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 1 of 4</p>
+              <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
                 What's your<br />social handle?
               </h1>
-              <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '36px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '36px', lineHeight: 1.5 }}>
                 We'll put it on every quote card you create.
               </p>
 
               <div style={{
                 position: 'relative',
                 borderRadius: '16px',
-                background: '#0f0f12',
-                border: `1.5px solid ${inputFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                background: '#000000',
+                border: `1.5px solid ${inputFocused ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)'}`,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
                 boxShadow: inputFocused ? '0 0 0 4px rgba(255,255,255,0.04)' : 'none',
                 overflow: 'hidden',
               }}>
-                <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontSize: '1.1rem', fontWeight: 700, transition: 'color 0.2s', pointerEvents: 'none' }}>@</span>
+                <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.2)', fontSize: '1.1rem', fontWeight: 700, transition: 'color 0.2s', pointerEvents: 'none' }}>@</span>
                 <input
                   ref={inputRef}
                   value={handle}
@@ -269,15 +269,15 @@ export default function OnboardingPage() {
                     background: 'transparent',
                     border: 'none', outline: 'none',
                     padding: '18px 18px 18px 38px',
-                    fontSize: '1.1rem', fontWeight: 600, color: '#fff',
+                    fontSize: '1.1rem', fontWeight: 600, color: '#000',
                     fontFamily: 'inherit',
                   }}
                 />
               </div>
 
               {handle && (
-                <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.3)', marginTop: '10px' }}>
-                  Will appear as <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>@{handle}</span>
+                <p style={{ fontSize: '0.78rem', color: 'rgba(0,0,0,0.25)', marginTop: '10px' }}>
+                  Will appear as <span style={{ color: 'rgba(0,0,0,0.55)', fontWeight: 600 }}>@{handle}</span>
                 </p>
               )}
             </div>
@@ -291,11 +291,11 @@ export default function OnboardingPage() {
         {/* NICHE */}
         {step === 'niche' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 2 of 4</p>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 2 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
               What's your<br />niche?
             </h1>
-            <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '28px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
               AI writes content tailored to your audience.
             </p>
 
@@ -309,8 +309,8 @@ export default function OnboardingPage() {
                     style={{
                       padding: '10px 16px', borderRadius: '24px', cursor: 'pointer',
                       background: niche === n ? '#ffffff' : 'rgba(255,255,255,0.05)',
-                      border: `1.5px solid ${niche === n ? '#ffffff' : 'rgba(255,255,255,0.08)'}`,
-                      color: niche === n ? '#000' : 'rgba(255,255,255,0.65)',
+                      border: `1.5px solid ${niche === n ? '#ffffff' : 'rgba(0,0,0,0.07)'}`,
+                      color: niche === n ? '#000' : 'rgba(0,0,0,0.6)',
                       fontSize: '0.82rem', fontWeight: niche === n ? 700 : 500,
                       transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
                       transform: niche === n ? 'scale(1.04)' : 'scale(1)',
@@ -333,11 +333,11 @@ export default function OnboardingPage() {
         {/* VOICE */}
         {step === 'voice' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 3 of 4</p>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 3 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
               Pick your<br />content voice.
             </h1>
-            <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '24px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '24px', lineHeight: 1.5 }}>
               How should your posts sound?
             </p>
 
@@ -351,8 +351,8 @@ export default function OnboardingPage() {
                     onClick={() => setVoice(v.id as VoiceKey)}
                     style={{
                       padding: '14px 16px', borderRadius: '16px', cursor: 'pointer',
-                      background: isSelected ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
-                      border: `1.5px solid ${isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                      background: isSelected ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.03)',
+                      border: `1.5px solid ${isSelected ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.07)'}`,
                       textAlign: 'left', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       fontFamily: 'inherit', flexShrink: 0,
@@ -360,13 +360,13 @@ export default function OnboardingPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isSelected ? '#fff' : 'rgba(255,255,255,0.75)', marginBottom: '3px' }}>{v.label}</div>
-                      <div style={{ fontSize: '0.73rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>{v.desc}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isSelected ? '#fff' : 'rgba(0,0,0,0.7)', marginBottom: '3px' }}>{v.label}</div>
+                      <div style={{ fontSize: '0.73rem', color: 'rgba(0,0,0,0.3)', lineHeight: 1.4 }}>{v.desc}</div>
                     </div>
                     <div style={{
                       width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, marginLeft: '12px',
-                      background: isSelected ? '#fff' : 'rgba(255,255,255,0.08)',
-                      border: `1.5px solid ${isSelected ? '#fff' : 'rgba(255,255,255,0.12)'}`,
+                      background: isSelected ? '#fff' : 'rgba(0,0,0,0.07)',
+                      border: `1.5px solid ${isSelected ? '#fff' : 'rgba(0,0,0,0.1)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.15s',
                     }}>
@@ -390,17 +390,17 @@ export default function OnboardingPage() {
         {/* PLAN */}
         {step === 'plan' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 4 of 4</p>
-            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 4 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '8px' }}>
               Choose your<br />plan.
             </h1>
 
             {/* Trial badge */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '6px 12px', marginBottom: '24px', width: 'fit-content' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '20px', padding: '6px 12px', marginBottom: '24px', width: 'fit-content' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>3-day free trial on all plans</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(0,0,0,0.55)' }}>3-day free trial on all plans</span>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
@@ -416,7 +416,7 @@ export default function OnboardingPage() {
                       background: isSelected
                         ? plan.highlight ? '#ffffff' : 'rgba(255,255,255,0.09)'
                         : 'rgba(255,255,255,0.03)',
-                      border: `1.5px solid ${isSelected ? (plan.highlight ? '#fff' : 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.07)'}`,
+                      border: `1.5px solid ${isSelected ? (plan.highlight ? '#fff' : 'rgba(0,0,0,0.25)') : 'rgba(255,255,255,0.07)'}`,
                       textAlign: 'left', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
                       fontFamily: 'inherit', flexShrink: 0,
                       animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
@@ -424,12 +424,12 @@ export default function OnboardingPage() {
                     }}
                   >
                     {plan.highlight && isSelected && (
-                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: '#000', color: '#fff', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: '#000', color: '#000', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                         Most Popular
                       </span>
                     )}
                     {plan.highlight && !isSelected && (
-                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: 'rgba(0,0,0,0.1)', color: 'rgba(0,0,0,0.45)', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                         Most Popular
                       </span>
                     )}
@@ -437,21 +437,21 @@ export default function OnboardingPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                       <div>
                         <div style={{ fontSize: '1rem', fontWeight: 800, color: isSelected && plan.highlight ? '#000' : '#fff', marginBottom: '2px' }}>{plan.name}</div>
-                        <div style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.35)', fontWeight: 500 }}>{plan.desc}</div>
+                        <div style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)', fontWeight: 500 }}>{plan.desc}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <span style={{ fontSize: '1.3rem', fontWeight: 900, color: isSelected && plan.highlight ? '#000' : '#fff' }}>{plan.price}</span>
-                        <span style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)', fontWeight: 500 }}>{plan.period}</span>
+                        <span style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.3)', fontWeight: 500 }}>{plan.period}</span>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {plan.features.map(f => (
                         <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.3)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.25)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M20 6L9 17l-5-5"/>
                           </svg>
-                          <span style={{ fontSize: '0.76rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{f}</span>
+                          <span style={{ fontSize: '0.76rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)', fontWeight: 500 }}>{f}</span>
                         </div>
                       ))}
                     </div>
@@ -465,8 +465,8 @@ export default function OnboardingPage() {
               disabled={checkingOut}
               style={{
                 ...ctaStyle(false),
-                background: checkingOut ? 'rgba(255,255,255,0.1)' : '#ffffff',
-                color: checkingOut ? 'rgba(255,255,255,0.4)' : '#000',
+                background: checkingOut ? 'rgba(0,0,0,0.08)' : '#ffffff',
+                color: checkingOut ? 'rgba(0,0,0,0.35)' : '#000',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
@@ -482,7 +482,7 @@ export default function OnboardingPage() {
                 `Start 3-day free trial →`
               )}
             </button>
-            <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'rgba(255,255,255,0.25)', marginTop: '10px' }}>
+            <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'rgba(0,0,0,0.2)', marginTop: '10px' }}>
               Cancel anytime. No charge for 3 days.
             </p>
           </div>
@@ -496,9 +496,9 @@ export default function OnboardingPage() {
 function ctaStyle(disabled: boolean): React.CSSProperties {
   return {
     width: '100%', height: '58px',
-    background: disabled ? 'rgba(255,255,255,0.06)' : '#ffffff',
+    background: disabled ? 'rgba(0,0,0,0.05)' : '#ffffff',
     color: disabled ? 'rgba(255,255,255,0.2)' : '#000000',
-    border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.06)' : 'transparent'}`,
+    border: `1.5px solid ${disabled ? 'rgba(0,0,0,0.05)' : 'transparent'}`,
     borderRadius: '18px',
     fontSize: '0.96rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer',
     letterSpacing: '-0.02em',

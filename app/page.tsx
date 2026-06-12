@@ -22,6 +22,7 @@ const DEFAULT_PROFILE: BrandProfile = {
 export default function HomePage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  const [ready, setReady] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<BrandProfile>(DEFAULT_PROFILE);
   const [voice, setVoice] = useState<VoiceKey>('parker');
@@ -44,7 +45,6 @@ export default function HomePage() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Redirect to onboarding if profile not set up for this user
     const uid = user?.id || 'guest';
     const profileKey = `cgs_profile_${uid}`;
     const voiceKey = `cgs_voice_${uid}`;
@@ -54,6 +54,8 @@ export default function HomePage() {
       router.replace('/onboarding');
       return;
     }
+
+    setReady(true);
 
     const savedTheme = localStorage.getItem('cgs_theme');
     if (savedTheme) setIsDark(savedTheme === 'dark');
@@ -180,6 +182,8 @@ export default function HomePage() {
   const activeNicheLabel = customNiche || profile.niche;
 
   const selectedQuote = selectedIdx !== null ? quotes[selectedIdx] : null;
+
+  if (!ready) return <div style={{ minHeight: '100vh', background: '#050507' }} />;
 
   return (
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: barVisible ? '200px' : '96px', transition: 'padding-bottom 0.3s ease, background 0.2s' }}>
