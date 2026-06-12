@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { DARK, LIGHT, VOICES, NICHES, SEED_QUOTES } from '@/lib/theme';
-import { Quote, BrandProfile, VoiceKey } from '@/lib/types';
+import { Quote, BrandProfile, VoiceKey, nicheLabel } from '@/lib/types';
 import Sheet from '@/components/Sheet';
 import QuoteCard from '@/components/QuoteCard';
 import BottomNav from '@/components/BottomNav';
@@ -125,7 +125,7 @@ export default function HomePage() {
         body: JSON.stringify({
           count,
           voice,
-          niche: customNiche || profile.niche,
+          niche: customNiche || nicheLabel(profile),
           name: profile.name,
           handle: profile.handle,
           customVoiceDesc: customVoice || undefined,
@@ -154,7 +154,7 @@ export default function HomePage() {
         body: JSON.stringify({
           quote: q.text,
           voice,
-          niche: customNiche || profile.niche,
+          niche: customNiche || nicheLabel(profile),
           name: profile.name,
           customVoiceDesc: customVoice || undefined,
         }),
@@ -196,21 +196,28 @@ export default function HomePage() {
     if (v !== 'custom') setVoiceSheet(false);
   }
 
-  function selectNiche(n: string) {
-    const updated = { ...profile, niche: n };
+  const selectedNiches = profile.niches && profile.niches.length > 0
+    ? profile.niches
+    : profile.niche ? [profile.niche] : [];
+
+  function toggleNiche(n: string) {
+    let next: string[];
+    if (selectedNiches.includes(n)) next = selectedNiches.filter(x => x !== n);
+    else if (selectedNiches.length < 3) next = [...selectedNiches, n];
+    else return;
+    const updated = { ...profile, niche: next[0] || '', niches: next };
     setProfile(updated);
     const json = JSON.stringify(updated);
     localStorage.setItem('cgs_profile', json);
     if (user) localStorage.setItem(`cgs_profile_${user.id}`, json);
     setCustomNiche('');
-    setNicheSheet(false);
   }
 
   const activeVoiceLabel = customVoice
     ? 'Custom Voice'
     : VOICES.find(v => v.id === voice)?.label || 'Parker Sharpe';
 
-  const activeNicheLabel = customNiche || profile.niche;
+  const activeNicheLabel = customNiche || (selectedNiches.length > 0 ? selectedNiches.join(' · ') : profile.niche);
 
   const selectedQuote = selectedIdx !== null ? quotes[selectedIdx] : null;
 
@@ -464,23 +471,44 @@ export default function HomePage() {
 
         <div style={{ height: '1px', background: isDark ? '#1f1f22' : '#efefef', marginBottom: '14px' }} />
 
+        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDark ? '#666' : '#888', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Pick up to 3 — {selectedNiches.length}/3 selected
+        </div>
+
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {NICHES.map(n => (
+          {NICHES.map(n => {
+            const on = selectedNiches.includes(n) && !customNiche;
+            return (
             <button
               key={n}
-              onClick={() => selectNiche(n)}
+              onClick={() => toggleNiche(n)}
               style={{
-                background: profile.niche === n && !customNiche ? (isDark ? '#ffffff' : '#0a0a0a') : (isDark ? '#141416' : '#f5f5f5'),
-                border: `1px solid ${profile.niche === n && !customNiche ? 'transparent' : (isDark ? '#1f1f22' : '#efefef')}`,
+                background: on ? (isDark ? '#ffffff' : '#0a0a0a') : (isDark ? '#141416' : '#f5f5f5'),
+                border: `1px solid ${on ? 'transparent' : (isDark ? '#1f1f22' : '#efefef')}`,
                 borderRadius: '20px', padding: '9px 18px', cursor: 'pointer',
                 fontSize: '0.82rem', fontWeight: 600,
-                color: profile.niche === n && !customNiche ? (isDark ? '#000' : '#fff') : (isDark ? '#888' : '#6b6b6b'),
+                color: on ? (isDark ? '#000' : '#fff') : (isDark ? '#888' : '#6b6b6b'),
+                opacity: !on && selectedNiches.length >= 3 && !customNiche ? 0.4 : 1,
               }}
             >
-              {n}
+              {on ? '✓ ' : ''}{n}
             </button>
-          ))}
+            );
+          })}
         </div>
+
+        <button
+          onClick={() => setNicheSheet(false)}
+          style={{
+            marginTop: '16px', width: '100%', height: '46px',
+            background: isDark ? '#ffffff' : '#0a0a0a',
+            color: isDark ? '#000' : '#fff',
+            border: 'none', borderRadius: '12px',
+            fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          Done
+        </button>
       </Sheet>
 
       <style>{`

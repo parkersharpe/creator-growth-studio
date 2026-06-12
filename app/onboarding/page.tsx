@@ -37,7 +37,7 @@ export default function OnboardingPage() {
   const [animating, setAnimating] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [handle, setHandle] = useState('');
-  const [niche, setNiche] = useState('');
+  const [niches, setNiches] = useState<string[]>([]);
   const [voice, setVoice] = useState<VoiceKey>('parker');
   const [selectedPlan, setSelectedPlan] = useState('unlimited');
   const [checkingOut, setCheckingOut] = useState(false);
@@ -80,11 +80,20 @@ export default function OnboardingPage() {
     setTimeout(() => setAnimating(false), 150);
   }
 
+  function toggleNiche(n: string) {
+    setNiches(prev =>
+      prev.includes(n) ? prev.filter(x => x !== n)
+      : prev.length < 3 ? [...prev, n]
+      : prev
+    );
+  }
+
   async function handleCheckout() {
     const profile = {
       name: user?.fullName || firstName,
       handle: handle.replace('@', '') || user?.username || '',
-      niche,
+      niche: niches[0] || '',
+      niches,
       website: '',
       avatar: user?.imageUrl || '/avatar.jpg',
       verified: true,
@@ -292,39 +301,43 @@ export default function OnboardingPage() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 2 of 4</p>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
-              What's your<br />niche?
+              Pick up to 3<br />niches.
             </h1>
             <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
-              AI writes content tailored to your audience.
+              AI writes content tailored to your audience. {niches.length}/3 selected.
             </p>
 
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingBottom: '8px' }}>
-                {NICHES.map((n, i) => (
+                {NICHES.map((n, i) => {
+                  const on = niches.includes(n);
+                  return (
                   <button
                     key={n}
                     className="niche-pill"
-                    onClick={() => setNiche(n)}
+                    onClick={() => toggleNiche(n)}
                     style={{
                       padding: '10px 16px', borderRadius: '24px', cursor: 'pointer',
-                      background: niche === n ? '#000000' : '#ffffff',
-                      border: `1.5px solid ${niche === n ? '#000000' : 'rgba(0,0,0,0.1)'}`,
-                      color: niche === n ? '#ffffff' : 'rgba(0,0,0,0.6)',
-                      fontSize: '0.82rem', fontWeight: niche === n ? 700 : 500,
+                      background: on ? '#000000' : '#ffffff',
+                      border: `1.5px solid ${on ? '#000000' : 'rgba(0,0,0,0.1)'}`,
+                      color: on ? '#ffffff' : 'rgba(0,0,0,0.6)',
+                      fontSize: '0.82rem', fontWeight: on ? 700 : 500,
                       transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
-                      transform: niche === n ? 'scale(1.04)' : 'scale(1)',
+                      transform: on ? 'scale(1.04)' : 'scale(1)',
                       fontFamily: 'inherit',
                       animation: `fadeUp 0.3s ${i * 0.02}s ease both`,
+                      opacity: !on && niches.length >= 3 ? 0.4 : 1,
                     }}
                   >
-                    {n}
+                    {on ? '✓ ' : ''}{n}
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            <button onClick={goNext} disabled={!niche} style={ctaStyle(!niche)}>
-              {niche ? `${niche} →` : 'Pick one to continue'}
+            <button onClick={goNext} disabled={niches.length === 0} style={ctaStyle(niches.length === 0)}>
+              {niches.length > 0 ? `Continue with ${niches.length} ${niches.length === 1 ? 'niche' : 'niches'} →` : 'Pick at least one'}
             </button>
           </div>
         )}

@@ -10,9 +10,15 @@ export interface BrandProfile {
   name: string;
   handle: string;
   niche: string;
+  niches?: string[]; // up to 3 — niche stays the primary for back-compat
   website: string;
   avatar: string;
   verified: boolean;
+}
+
+// Niches for AI prompts: joined list when multiple are set
+export function nicheLabel(p: BrandProfile): string {
+  return p.niches && p.niches.length > 0 ? p.niches.join(', ') : p.niche;
 }
 
 export interface DesignSettings {

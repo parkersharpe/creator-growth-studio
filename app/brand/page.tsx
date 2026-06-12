@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { DARK, LIGHT, VOICES, NICHES } from '@/lib/theme';
-import { BrandProfile, VoiceKey } from '@/lib/types';
+import { BrandProfile, VoiceKey, nicheLabel } from '@/lib/types';
 import Sheet from '@/components/Sheet';
 import BottomNav from '@/components/BottomNav';
 import AuthGuard from '@/components/AuthGuard';
@@ -38,6 +38,9 @@ export default function BrandPage() {
   const [nicheSheet, setNicheSheet] = useState(false);
   const [saved, setSaved] = useState(false);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [sub, setSub] = useState<{ plan: string | null; status?: string; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: number | null } | null>(null);
+  const [subLoading, setSubLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const t = isDark ? DARK : LIGHT;
 
@@ -56,7 +59,25 @@ export default function BrandPage() {
 
     const savedKits = localStorage.getItem('cgs_kits');
     if (savedKits) { try { setKits(JSON.parse(savedKits)); } catch {} }
+
+    fetch('/api/subscription')
+      .then(r => r.json())
+      .then(d => { setSub(d); setSubLoading(false); })
+      .catch(() => setSubLoading(false));
   }, []);
+
+  async function openBillingPortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch('/api/billing-portal', { method: 'POST' });
+      const { url } = await res.json();
+      if (url) { window.location.href = url; return; }
+      alert('Could not open billing. Please try again.');
+    } catch {
+      alert('Could not open billing. Please try again.');
+    }
+    setPortalLoading(false);
+  }
 
   function updateProfile(patch: Partial<BrandProfile>) {
     const next = { ...profile, ...patch };
@@ -73,9 +94,16 @@ export default function BrandPage() {
     setVoiceSheet(false);
   }
 
-  function selectNiche(n: string) {
-    updateProfile({ niche: n });
-    setNicheSheet(false);
+  const selectedNiches = profile.niches && profile.niches.length > 0
+    ? profile.niches
+    : profile.niche ? [profile.niche] : [];
+
+  function toggleNiche(n: string) {
+    let next: string[];
+    if (selectedNiches.includes(n)) next = selectedNiches.filter(x => x !== n);
+    else if (selectedNiches.length < 3) next = [...selectedNiches, n];
+    else return;
+    updateProfile({ niche: next[0] || '', niches: next });
   }
 
   function saveKit() {
@@ -105,13 +133,17 @@ export default function BrandPage() {
     }
   }
 
-  async function handleUpgrade(plan: string) {
-    setCheckingOut(plan);
+  async function handleUpgrade(planId: string) {
+    setCheckingOut(planId);
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: plan.toLowerCase(), email: '' }),
+        body: JSON.stringify({
+          plan: planId,
+          email: user?.primaryEmailAddress?.emailAddress || '',
+          userId: user?.id || '',
+        }),
       });
       const { url } = await res.json();
       if (url) window.location.href = url;
@@ -133,16 +165,25 @@ export default function BrandPage() {
 
   const PLANS = [
     {
-      name: 'Starter', price: '$7.99/mo', desc: 'Get started',
+      id: 'starter', name: 'Starter', price: '$7.99/mo', desc: 'Get started',
       features: ['50 quotes/day', '20 machine items/day', 'Full designer', 'Download images'],
-      cta: 'Upgrade', highlight: false,
+      highlight: false,
     },
     {
-      name: 'Unlimited', price: '$14.99/mo', desc: 'Everything, no limits',
+      id: 'unlimited', name: 'Unlimited', price: '$14.99/mo', desc: 'Everything, no limits',
       features: ['Unlimited quotes', 'Unlimited content machine', 'Video exports', 'Multi-brand kits', 'Priority support'],
-      cta: 'Upgrade', highlight: true,
+      highlight: true,
     },
   ];
+
+  // What the button on each plan card should do, given the user's current plan
+  function planCta(planId: string): { label: string; action: 'none' | 'portal' | 'checkout' } {
+    if (subLoading) return { label: '…', action: 'none' };
+    const current = sub?.plan;
+    if (!current) return { label: 'Subscribe', action: 'checkout' };
+    if (current === planId) return { label: 'Current Plan', action: 'none' };
+    return { label: planId === 'unlimited' ? 'Upgrade' : 'Downgrade', action: 'portal' };
+  }
 
   const inputStyle: React.CSSProperties = {
     width: '100%', height: '48px', padding: '0 16px',
@@ -215,7 +256,7 @@ export default function BrandPage() {
               background: t.pill, border: `1px solid ${t.pillBrd}`,
               borderRadius: '20px', padding: '3px 10px',
             }}>
-              {profile.niche}
+              {nicheLabel(profile)}
             </div>
           </div>
         </div>
@@ -258,8 +299,8 @@ export default function BrandPage() {
                 fontFamily: 'inherit',
               }}
             >
-              <span style={{ fontWeight: 500 }}>{profile.niche}</span>
-              <span style={{ fontSize: '0.68rem', color: t.text3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Niche</span>
+              <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '10px' }}>{nicheLabel(profile)}</span>
+              <span style={{ fontSize: '0.68rem', color: t.text3, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', flexShrink: 0 }}>{selectedNiches.length > 1 ? 'Niches' : 'Niche'}</span>
             </button>
 
             {/* Voice button */}
@@ -389,24 +430,75 @@ export default function BrandPage() {
                       </li>
                     ))}
                   </ul>
-                  <button
-                    onClick={() => plan.cta === 'Upgrade' && handleUpgrade(plan.name)}
-                    disabled={checkingOut === plan.name.toLowerCase()}
-                    style={{
-                      width: '100%', padding: '12px', borderRadius: '12px',
-                      cursor: plan.cta === 'Upgrade' ? 'pointer' : 'default',
-                      background: isHighlight ? (isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)') : t.surface2,
-                      color: isHighlight ? planText : t.text2,
-                      border: isHighlight ? `1px solid ${isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.25)'}` : `1px solid ${t.border}`,
-                      fontSize: '0.84rem', fontWeight: 700, fontFamily: 'inherit',
-                      letterSpacing: '-0.01em', opacity: checkingOut === plan.name.toLowerCase() ? 0.6 : 1,
-                    }}
-                  >
-                    {checkingOut === plan.name.toLowerCase() ? 'Loading…' : plan.cta}
-                  </button>
+                  {(() => {
+                    const cta = planCta(plan.id);
+                    const busy = checkingOut === plan.id || portalLoading;
+                    const isCurrent = cta.action === 'none' && !subLoading;
+                    return (
+                      <button
+                        onClick={() => {
+                          if (busy) return;
+                          if (cta.action === 'checkout') handleUpgrade(plan.id);
+                          else if (cta.action === 'portal') openBillingPortal();
+                        }}
+                        disabled={cta.action === 'none' || busy}
+                        style={{
+                          width: '100%', padding: '12px', borderRadius: '12px',
+                          cursor: cta.action !== 'none' && !busy ? 'pointer' : 'default',
+                          background: isHighlight ? (isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)') : t.surface2,
+                          color: isHighlight ? planText : t.text2,
+                          border: isHighlight ? `1px solid ${isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.25)'}` : `1px solid ${t.border}`,
+                          fontSize: '0.84rem', fontWeight: 700, fontFamily: 'inherit',
+                          letterSpacing: '-0.01em', opacity: busy ? 0.6 : 1,
+                        }}
+                      >
+                        {checkingOut === plan.id ? 'Loading…' : isCurrent ? '✓ Current Plan' : cta.label}
+                      </button>
+                    );
+                  })()}
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        {/* Membership */}
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: t.text3, textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: '14px' }}>
+            Membership
+          </div>
+          <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: '20px', padding: '20px 18px', boxShadow: t.shadow }}>
+            <div style={{ fontSize: '0.95rem', fontWeight: 800, color: t.text, letterSpacing: '-0.02em', marginBottom: '4px' }}>
+              {subLoading ? 'Checking your plan…' : sub?.plan ? `${sub.plan === 'unlimited' ? 'Unlimited' : 'Starter'} — active` : 'No active membership'}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: t.text2, marginBottom: sub?.plan ? '16px' : 0, lineHeight: 1.5 }}>
+              {subLoading ? '' : sub?.plan
+                ? sub.cancelAtPeriodEnd
+                  ? `Cancels ${sub.currentPeriodEnd ? 'on ' + new Date(sub.currentPeriodEnd * 1000).toLocaleDateString() : 'at the end of this period'} — you keep access until then.`
+                  : sub.status === 'trialing'
+                    ? `Free trial${sub.currentPeriodEnd ? ' — first charge on ' + new Date(sub.currentPeriodEnd * 1000).toLocaleDateString() : ''}.`
+                    : `Renews${sub.currentPeriodEnd ? ' on ' + new Date(sub.currentPeriodEnd * 1000).toLocaleDateString() : ' monthly'}.`
+                : 'Subscribe to a plan above to unlock the studio.'}
+            </div>
+            {sub?.plan && (
+              <>
+                <button
+                  onClick={openBillingPortal}
+                  disabled={portalLoading}
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: '12px', cursor: portalLoading ? 'default' : 'pointer',
+                    background: t.btnBg, color: t.btnTxt, border: 'none',
+                    fontSize: '0.84rem', fontWeight: 700, fontFamily: 'inherit',
+                    letterSpacing: '-0.01em', opacity: portalLoading ? 0.6 : 1,
+                  }}
+                >
+                  {portalLoading ? 'Opening…' : 'Manage Membership'}
+                </button>
+                <p style={{ fontSize: '0.7rem', color: t.text3, textAlign: 'center', marginTop: '10px', lineHeight: 1.5 }}>
+                  Change plan, update your card, view invoices, or cancel.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -434,24 +526,43 @@ export default function BrandPage() {
       </Sheet>
 
       {/* Niche Sheet */}
-      <Sheet open={nicheSheet} onClose={() => setNicheSheet(false)} title="Select Niche" isDark={isDark}>
+      <Sheet open={nicheSheet} onClose={() => setNicheSheet(false)} title="Select Niches" isDark={isDark}>
+        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: isDark ? '#666' : '#888', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Pick up to 3 — {selectedNiches.length}/3 selected
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {NICHES.map(n => (
+          {NICHES.map(n => {
+            const on = selectedNiches.includes(n);
+            return (
             <button
               key={n}
-              onClick={() => selectNiche(n)}
+              onClick={() => toggleNiche(n)}
               style={{
-                background: profile.niche === n ? (isDark ? '#ffffff' : '#0a0a0a') : (isDark ? '#141416' : '#f5f5f5'),
-                border: `1px solid ${profile.niche === n ? 'transparent' : (isDark ? '#1f1f22' : '#efefef')}`,
+                background: on ? (isDark ? '#ffffff' : '#0a0a0a') : (isDark ? '#141416' : '#f5f5f5'),
+                border: `1px solid ${on ? 'transparent' : (isDark ? '#1f1f22' : '#efefef')}`,
                 borderRadius: '20px', padding: '9px 18px', cursor: 'pointer',
                 fontSize: '0.82rem', fontWeight: 600, fontFamily: 'inherit',
-                color: profile.niche === n ? (isDark ? '#000' : '#fff') : (isDark ? '#888' : '#6b6b6b'),
+                color: on ? (isDark ? '#000' : '#fff') : (isDark ? '#888' : '#6b6b6b'),
+                opacity: !on && selectedNiches.length >= 3 ? 0.4 : 1,
               }}
             >
-              {n}
+              {on ? '✓ ' : ''}{n}
             </button>
-          ))}
+            );
+          })}
         </div>
+        <button
+          onClick={() => setNicheSheet(false)}
+          style={{
+            marginTop: '16px', width: '100%', height: '46px',
+            background: isDark ? '#ffffff' : '#0a0a0a',
+            color: isDark ? '#000' : '#fff',
+            border: 'none', borderRadius: '12px',
+            fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Done
+        </button>
       </Sheet>
 
       <BottomNav
