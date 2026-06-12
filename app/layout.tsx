@@ -30,12 +30,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         </head>
-        <body className={dmSans.className} style={{ background: '#050507' }}>
+        <body className={dmSans.className} style={{ background: '#ffffff' }}>
           <script dangerouslySetInnerHTML={{ __html: `
             (function() {
               try {
                 var theme = localStorage.getItem('cgs_theme');
-                document.body.style.background = theme === 'light' ? '#ffffff' : '#050507';
+                document.body.style.background = theme === 'dark' ? '#050507' : '#ffffff';
               } catch(e) {}
             })();
           `}} />
