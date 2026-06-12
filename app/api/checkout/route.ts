@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     customer_email: email || undefined,
     metadata: { userId: userId || '', plan },
     success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/?subscribed=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/brand`,
+    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/onboarding`,
   });
 
   return NextResponse.json({ url: session.url });

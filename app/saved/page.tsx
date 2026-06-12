@@ -24,6 +24,7 @@ export default function SavedPage() {
   const t = isDark ? DARK : LIGHT;
 
   useEffect(() => {
+    if (!localStorage.getItem('cgs_profile')) { router.replace('/onboarding'); return; }
     const savedTheme = localStorage.getItem('cgs_theme');
     if (savedTheme) setIsDark(savedTheme === 'dark');
     loadItems();

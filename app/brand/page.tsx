@@ -39,6 +39,9 @@ export default function BrandPage() {
   const t = isDark ? DARK : LIGHT;
 
   useEffect(() => {
+    const profile = localStorage.getItem('cgs_profile');
+    if (!profile) { router.replace('/onboarding'); return; }
+
     const savedTheme = localStorage.getItem('cgs_theme');
     if (savedTheme) setIsDark(savedTheme === 'dark');
 
