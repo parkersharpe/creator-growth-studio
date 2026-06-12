@@ -23,6 +23,7 @@ export default function HomePage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
   const [ready, setReady] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<BrandProfile>(DEFAULT_PROFILE);
   const [voice, setVoice] = useState<VoiceKey>('parker');
@@ -49,8 +50,28 @@ export default function HomePage() {
     const profileKey = `cgs_profile_${uid}`;
     const voiceKey = `cgs_voice_${uid}`;
 
+    // Finalize pending profile if returning from Stripe with ?subscribed=true
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscribed') === 'true') {
+      const pending = localStorage.getItem(`cgs_pending_profile_${uid}`);
+      const pendingVoice = localStorage.getItem(`cgs_pending_voice_${uid}`);
+      if (pending) {
+        localStorage.setItem(profileKey, pending);
+        localStorage.setItem('cgs_profile', pending);
+        localStorage.removeItem(`cgs_pending_profile_${uid}`);
+      }
+      if (pendingVoice) {
+        localStorage.setItem(voiceKey, pendingVoice);
+        localStorage.setItem('cgs_voice', pendingVoice);
+        localStorage.removeItem(`cgs_pending_voice_${uid}`);
+      }
+      // Clean URL
+      window.history.replaceState({}, '', '/');
+    }
+
     const savedProfile = localStorage.getItem(profileKey) || localStorage.getItem('cgs_profile');
     if (!savedProfile && user) {
+      setRedirecting(true);
       router.replace('/onboarding');
       return;
     }
@@ -183,7 +204,7 @@ export default function HomePage() {
 
   const selectedQuote = selectedIdx !== null ? quotes[selectedIdx] : null;
 
-  if (!ready) return <div style={{ minHeight: '100vh', background: '#050507' }} />;
+  if (!ready || redirecting) return <div style={{ minHeight: '100vh', background: '#050507' }} />;
 
   return (
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: barVisible ? '200px' : '96px', transition: 'padding-bottom 0.3s ease, background 0.2s' }}>

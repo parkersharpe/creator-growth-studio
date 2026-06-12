@@ -64,23 +64,19 @@ export default function OnboardingPage() {
 
   function goNext() {
     if (animating) return;
-    setAnimating(true);
     setDirection('forward');
-    setTimeout(() => {
-      const idx = STEPS.indexOf(step);
-      if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
-      setAnimating(false);
-    }, 280);
+    setAnimating(true);
+    const idx = STEPS.indexOf(step);
+    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
+    setTimeout(() => setAnimating(false), 150);
   }
 
   function goBack() {
     if (animating || stepIndex === 0) return;
-    setAnimating(true);
     setDirection('back');
-    setTimeout(() => {
-      setStep(STEPS[stepIndex - 1]);
-      setAnimating(false);
-    }, 280);
+    setAnimating(true);
+    setStep(STEPS[stepIndex - 1]);
+    setTimeout(() => setAnimating(false), 150);
   }
 
   async function handleCheckout() {
@@ -93,10 +89,9 @@ export default function OnboardingPage() {
       verified: true,
     };
     const uid = user?.id || 'guest';
-    localStorage.setItem(`cgs_profile_${uid}`, JSON.stringify(profile));
-    localStorage.setItem(`cgs_voice_${uid}`, voice);
-    localStorage.setItem('cgs_profile', JSON.stringify(profile));
-    localStorage.setItem('cgs_voice', voice);
+    // Save as PENDING — only finalized after Stripe confirms payment
+    localStorage.setItem(`cgs_pending_profile_${uid}`, JSON.stringify(profile));
+    localStorage.setItem(`cgs_pending_voice_${uid}`, voice);
 
     setCheckingOut(true);
     try {
@@ -118,28 +113,28 @@ export default function OnboardingPage() {
 
   const slideStyle: React.CSSProperties = {
     animation: animating
-      ? `${direction === 'forward' ? 'slideOutLeft' : 'slideOutRight'} 0.28s cubic-bezier(0.4,0,1,1) forwards`
-      : `${direction === 'forward' ? 'slideInRight' : 'slideInLeft'} 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+      ? `${direction === 'forward' ? 'slideOutLeft' : 'slideOutRight'} 0.15s ease forwards`
+      : `${direction === 'forward' ? 'slideInRight' : 'slideInLeft'} 0.2s ease forwards`,
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <style>{`
         @keyframes slideInRight {
-          from { opacity: 0; transform: translateX(40px); }
+          from { opacity: 0; transform: translateX(24px); }
           to { opacity: 1; transform: translateX(0); }
         }
         @keyframes slideOutLeft {
           from { opacity: 1; transform: translateX(0); }
-          to { opacity: 0; transform: translateX(-40px); }
+          to { opacity: 0; transform: translateX(-24px); }
         }
         @keyframes slideInLeft {
-          from { opacity: 0; transform: translateX(-40px); }
+          from { opacity: 0; transform: translateX(-24px); }
           to { opacity: 1; transform: translateX(0); }
         }
         @keyframes slideOutRight {
           from { opacity: 1; transform: translateX(0); }
-          to { opacity: 0; transform: translateX(40px); }
+          to { opacity: 0; transform: translateX(24px); }
         }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(16px); }
