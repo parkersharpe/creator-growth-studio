@@ -16,7 +16,7 @@ const PLANS = [
     price: '$7.99',
     period: '/mo',
     desc: 'Perfect to get started',
-    features: ['50 quotes/day', '20 machine items/day', 'Full designer', 'Download images'],
+    features: ['50 quotes/day', '20 machine items/day', 'Unlimited image exports', '10 video exports/mo'],
     highlight: false,
   },
   {
@@ -25,7 +25,7 @@ const PLANS = [
     price: '$14.99',
     period: '/mo',
     desc: 'Everything, no limits',
-    features: ['Unlimited quotes', 'Unlimited content machine', 'Video exports', 'Multi-brand kits', 'Priority support'],
+    features: ['Unlimited quotes', 'Unlimited content machine', 'Unlimited video exports', 'Multi-brand kits', 'Priority support'],
     highlight: true,
   },
 ];

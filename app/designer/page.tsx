@@ -51,6 +51,10 @@ export default function DesignerPage() {
   const [editableTexts, setEditableTexts] = useState<Record<number, string>>({});
   const [isEditingText, setIsEditingText] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [readyVideo, setReadyVideo] = useState<File | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
+
+  const VIDEO_LIMIT_STARTER = 10;
 
   // Preview dimensions — card renders at natural size, scaled down visually
   const PREVIEW_MAX_H = 240;
@@ -106,7 +110,34 @@ export default function DesignerPage() {
         document.head.appendChild(link);
       }
     });
+
+    fetch('/api/subscription').then(r => r.json()).then(d => setPlan(d.plan)).catch(() => {});
   }, []);
+
+  // Starter plan gets a monthly video export allowance; Unlimited has no cap
+  function videoExportsLeft(): number {
+    if (plan !== 'starter') return Infinity;
+    const ym = new Date().toISOString().slice(0, 7);
+    try {
+      const raw = localStorage.getItem('cgs_video_exports');
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p.ym === ym) return Math.max(0, VIDEO_LIMIT_STARTER - p.count);
+      }
+    } catch {}
+    return VIDEO_LIMIT_STARTER;
+  }
+
+  function countVideoExport() {
+    if (plan !== 'starter') return;
+    const ym = new Date().toISOString().slice(0, 7);
+    let count = 0;
+    try {
+      const raw = localStorage.getItem('cgs_video_exports');
+      if (raw) { const p = JSON.parse(raw); if (p.ym === ym) count = p.count; }
+    } catch {}
+    localStorage.setItem('cgs_video_exports', JSON.stringify({ ym, count: count + 1 }));
+  }
 
   function updateDesign(patch: Partial<DesignSettings>) {
     const next = { ...design, ...patch };
@@ -164,19 +195,28 @@ export default function DesignerPage() {
 
   async function handleVideoExport() {
     if (!videoRef.current) return;
-    setDownloading(true);
+
+    // Starter allowance check
+    if (videoExportsLeft() <= 0) {
+      alert(`You've used all ${VIDEO_LIMIT_STARTER} video exports this month on Starter. Upgrade to Unlimited in the Brand tab for unlimited video exports.`);
+      return;
+    }
 
     const activeFormat = FORMATS.find(f => f.id === format)!;
     const W = activeFormat.w;
     const H = activeFormat.h;
 
-    // iOS Safari doesn't support MediaRecorder/captureStream — export PNG frame instead
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS || !('captureStream' in HTMLCanvasElement.prototype)) {
-      // Fall back to high-quality PNG of current video frame
+    // Pick a container the browser can actually record (Safari/iPhone = MP4, Chrome = MP4 or WebM)
+    const canRecord = typeof MediaRecorder !== 'undefined' && 'captureStream' in HTMLCanvasElement.prototype;
+    const recordMime = canRecord
+      ? ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m))
+      : undefined;
+    if (!recordMime) {
+      alert('Video recording is not supported in this browser — exporting a still image instead.');
       await handleDownload();
       return;
     }
+    setDownloading(true);
 
     const offscreen = document.createElement('canvas');
     offscreen.width = W;
@@ -201,23 +241,27 @@ export default function DesignerPage() {
     const fontSize = (design.fontSize ?? 24) * scaleX;
     const photoSize = design.photoSize * scaleX;
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : 'video/webm';
-
     const stream = offscreen.captureStream(30);
-    const recorder = new MediaRecorder(stream, { mimeType });
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: recordMime, videoBitsPerSecond: 8_000_000 });
+    } catch {
+      setDownloading(false);
+      alert('Video recording failed to start — exporting a still image instead.');
+      await handleDownload();
+      return;
+    }
     const chunks: BlobPart[] = [];
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cgs-${format.replace(':','-')}.webm`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      const containerType = recordMime.split(';')[0];
+      const ext = containerType === 'video/mp4' ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: containerType });
+      const file = new File([blob], `CreatorGrowthStudio-${format.replace(':','-')}.${ext}`, { type: containerType });
+      countVideoExport();
+      // iOS requires a fresh tap to open the share sheet — show a "ready" screen instead of auto-sharing
+      setReadyVideo(file);
       setDownloading(false);
     };
 
@@ -424,6 +468,25 @@ export default function DesignerPage() {
       }
       setDownloading(false);
     }
+  }
+
+  // Called from a fresh tap on the "ready" screen so iOS allows the share sheet
+  async function saveReadyVideo() {
+    if (!readyVideo) return;
+    if (navigator.canShare && navigator.canShare({ files: [readyVideo] })) {
+      try {
+        await navigator.share({ files: [readyVideo], title: 'Creator Growth Studio' });
+        return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+      }
+    }
+    const url = URL.createObjectURL(readyVideo);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = readyVideo.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
   const currentQuote = quotes[activeQuote] || quotes[0];
@@ -1125,6 +1188,11 @@ export default function DesignerPage() {
             Post to Instagram
           </button>
 
+          {bgMedia?.type === 'video' && plan === 'starter' && (
+            <p style={{ fontSize: '0.68rem', color: t.text3, textAlign: 'center', lineHeight: 1.5, margin: 0 }}>
+              {videoExportsLeft()} of {VIDEO_LIMIT_STARTER} video exports left this month
+            </p>
+          )}
           <p style={{ fontSize: '0.68rem', color: t.text3, textAlign: 'center', lineHeight: 1.5 }}>
             On iPhone: tap Share, then choose Instagram. On desktop: image downloads first, then upload manually.
           </p>
@@ -1231,6 +1299,55 @@ export default function DesignerPage() {
               Back to Edit
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Video ready modal */}
+      {readyVideo && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.94)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          padding: '32px', textAlign: 'center',
+        }}>
+          <div style={{
+            width: '72px', height: '72px', borderRadius: '50%',
+            background: '#16a34a', marginBottom: '24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+          </div>
+          <h2 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '8px' }}>
+            Your video is ready
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '32px', maxWidth: '280px' }}>
+            Save it to your camera roll or share it straight to Instagram.
+          </p>
+          <button
+            onClick={saveReadyVideo}
+            style={{
+              width: '100%', maxWidth: '320px', height: '56px',
+              background: '#fff', color: '#000', border: 'none', borderRadius: '16px',
+              fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer',
+              letterSpacing: '-0.02em', marginBottom: '12px',
+            }}
+          >
+            Save Video
+          </button>
+          <button
+            onClick={() => setReadyVideo(null)}
+            style={{
+              width: '100%', maxWidth: '320px', height: '48px',
+              background: 'rgba(255,255,255,0.12)', color: '#fff',
+              border: '1px solid rgba(255,255,255,0.2)', borderRadius: '14px',
+              fontSize: '0.88rem', fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Done
+          </button>
         </div>
       )}
     </div>
