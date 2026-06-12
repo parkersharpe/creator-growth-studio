@@ -13,29 +13,20 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$9.99',
+    price: '$7.99',
     period: '/mo',
     desc: 'Perfect to get started',
-    features: ['50 quotes/day', '20 machine items/day', 'Basic designer', 'Download images'],
+    features: ['50 quotes/day', '20 machine items/day', 'Full designer', 'Download images'],
     highlight: false,
   },
   {
-    id: 'creator',
-    name: 'Creator',
+    id: 'unlimited',
+    name: 'Unlimited',
     price: '$14.99',
     period: '/mo',
-    desc: 'Most popular',
-    features: ['Unlimited quotes', 'Unlimited machine', 'Full designer + video', 'Priority support'],
+    desc: 'Everything, no limits',
+    features: ['Unlimited quotes', 'Unlimited content machine', 'Video exports', 'Multi-brand kits', 'Priority support'],
     highlight: true,
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: '$19.99',
-    period: '/mo',
-    desc: 'For power creators',
-    features: ['Everything in Creator', 'Multi-brand kits', 'Custom voice training', 'White-label exports'],
-    highlight: false,
   },
 ];
 
@@ -48,7 +39,7 @@ export default function OnboardingPage() {
   const [handle, setHandle] = useState('');
   const [niche, setNiche] = useState('');
   const [voice, setVoice] = useState<VoiceKey>('parker');
-  const [selectedPlan, setSelectedPlan] = useState('creator');
+  const [selectedPlan, setSelectedPlan] = useState('unlimited');
   const [checkingOut, setCheckingOut] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

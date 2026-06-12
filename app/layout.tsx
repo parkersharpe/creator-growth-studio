@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { DM_Sans } from 'next/font/google'
 import { ClerkProvider } from '@clerk/nextjs'
+import CloudSync from '@/components/CloudSync'
 import './globals.css'
 
 const dmSans = DM_Sans({ subsets: ['latin'] })
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             })();
           `}} />
           <div style={{ maxWidth: '430px', margin: '0 auto', minHeight: '100vh', position: 'relative' }}>
-            {children}
+            <CloudSync>{children}</CloudSync>
           </div>
         </body>
       </html>

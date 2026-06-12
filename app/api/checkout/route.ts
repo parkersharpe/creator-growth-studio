@@ -4,9 +4,8 @@ import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const PRICE_IDS: Record<string, string> = {
-  starter: 'price_1ThDmC16k4MvHMFzoQ4htL9t',
-  creator: 'price_1ThDmC16k4MvHMFzVpuJXdQl',
-  pro: 'price_1ThDmD16k4MvHMFzivKhrStb',
+  starter: 'price_1ThZ8316k4MvHMFz4WGEGDRF',   // $7.99/mo
+  unlimited: 'price_1ThDmC16k4MvHMFzVpuJXdQl', // $14.99/mo
 };
 
 export async function POST(req: NextRequest) {
