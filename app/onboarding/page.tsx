@@ -47,9 +47,14 @@ export default function OnboardingPage() {
   const stepIndex = STEPS.indexOf(step);
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Creator';
 
-  // Onboarding requires a signed-in account — payment is tied to the user
+  // Onboarding requires a signed-in account — payment is tied to the user.
+  // Users who already finished onboarding (profile exists) go straight to the app.
+  const [checked, setChecked] = useState(false);
   useEffect(() => {
-    if (isLoaded && !user) router.replace('/sign-in');
+    if (!isLoaded) return;
+    if (!user) { router.replace('/sign-in'); return; }
+    if (localStorage.getItem(`cgs_profile_${user.id}`)) { router.replace('/'); return; }
+    setChecked(true);
   }, [isLoaded, user, router]);
 
   useEffect(() => {
@@ -106,6 +111,9 @@ export default function OnboardingPage() {
       setCheckingOut(false);
     }
   }
+
+  // Hold rendering until we know whether this user still needs onboarding
+  if (!checked) return <div style={{ minHeight: '100vh', background: '#f5f5f7' }} />;
 
   const slideStyle: React.CSSProperties = {
     animation: animating
