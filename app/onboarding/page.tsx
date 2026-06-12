@@ -92,6 +92,9 @@ export default function OnboardingPage() {
       avatar: user?.imageUrl || '/avatar.jpg',
       verified: true,
     };
+    const uid = user?.id || 'guest';
+    localStorage.setItem(`cgs_profile_${uid}`, JSON.stringify(profile));
+    localStorage.setItem(`cgs_voice_${uid}`, voice);
     localStorage.setItem('cgs_profile', JSON.stringify(profile));
     localStorage.setItem('cgs_voice', voice);
 

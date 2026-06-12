@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { DARK, LIGHT, VOICES, NICHES, SEED_QUOTES } from '@/lib/theme';
 import { Quote, BrandProfile, VoiceKey } from '@/lib/types';
 import Sheet from '@/components/Sheet';
@@ -20,6 +21,7 @@ const DEFAULT_PROFILE: BrandProfile = {
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, isLoaded } = useUser();
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<BrandProfile>(DEFAULT_PROFILE);
   const [voice, setVoice] = useState<VoiceKey>('parker');
@@ -40,12 +42,29 @@ export default function HomePage() {
   const t = isDark ? DARK : LIGHT;
 
   useEffect(() => {
+    if (!isLoaded) return;
+
+    // Redirect to onboarding if profile not set up for this user
+    const uid = user?.id || 'guest';
+    const profileKey = `cgs_profile_${uid}`;
+    const voiceKey = `cgs_voice_${uid}`;
+
+    const savedProfile = localStorage.getItem(profileKey) || localStorage.getItem('cgs_profile');
+    if (!savedProfile && user) {
+      router.replace('/onboarding');
+      return;
+    }
+
     const savedTheme = localStorage.getItem('cgs_theme');
     if (savedTheme) setIsDark(savedTheme === 'dark');
 
-    const savedProfile = localStorage.getItem('cgs_profile');
     if (savedProfile) {
-      try { setProfile(JSON.parse(savedProfile)); } catch {}
+      try {
+        const p = JSON.parse(savedProfile);
+        // Migrate old key to user-scoped key
+        localStorage.setItem(profileKey, JSON.stringify(p));
+        setProfile(p);
+      } catch {}
     }
 
     const savedQuotes = localStorage.getItem('cgs_quotes');
@@ -53,9 +72,12 @@ export default function HomePage() {
       try { setQuotes(JSON.parse(savedQuotes)); } catch {}
     }
 
-    const savedVoice = localStorage.getItem('cgs_voice');
-    if (savedVoice) setVoice(savedVoice as VoiceKey);
-  }, []);
+    const savedVoice = localStorage.getItem(voiceKey) || localStorage.getItem('cgs_voice');
+    if (savedVoice) {
+      localStorage.setItem(voiceKey, savedVoice);
+      setVoice(savedVoice as VoiceKey);
+    }
+  }, [isLoaded, user]);
 
   function toggleTheme() {
     const next = !isDark;
