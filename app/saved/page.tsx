@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DARK, LIGHT } from '@/lib/theme';
 import BottomNav from '@/components/BottomNav';
+import AuthGuard from '@/components/AuthGuard';
 
 export type SavedItem = {
   id: string;
@@ -76,6 +77,7 @@ export default function SavedPage() {
   const sorted = [...filtered].sort((a, b) => b.savedAt - a.savedAt);
 
   return (
+    <AuthGuard>
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: '96px', transition: 'background 0.2s' }}>
       {/* Top bar */}
       <div style={{ padding: '20px 24px 16px' }}>
@@ -244,5 +246,6 @@ export default function SavedPage() {
 
       <BottomNav active="saved" onNavigate={(href) => router.push(href)} isDark={isDark} />
     </div>
+    </AuthGuard>
   );
 }

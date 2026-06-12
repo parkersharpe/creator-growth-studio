@@ -50,56 +50,63 @@ export default function HomePage() {
     const profileKey = `cgs_profile_${uid}`;
     const voiceKey = `cgs_voice_${uid}`;
 
-    // Finalize pending profile if returning from Stripe with ?subscribed=true
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('subscribed') === 'true') {
-      const pending = localStorage.getItem(`cgs_pending_profile_${uid}`);
-      const pendingVoice = localStorage.getItem(`cgs_pending_voice_${uid}`);
-      if (pending) {
-        localStorage.setItem(profileKey, pending);
-        localStorage.setItem('cgs_profile', pending);
-        localStorage.removeItem(`cgs_pending_profile_${uid}`);
+    async function init() {
+      // Returning from Stripe — verify the checkout session server-side before unlocking
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+      if (sessionId) {
+        try {
+          const res = await fetch(`/api/verify-session?session_id=${encodeURIComponent(sessionId)}`);
+          const data = await res.json();
+          if (data.ok) {
+            const pending = localStorage.getItem(`cgs_pending_profile_${uid}`);
+            const pendingVoice = localStorage.getItem(`cgs_pending_voice_${uid}`);
+            if (pending) {
+              localStorage.setItem(profileKey, pending);
+              localStorage.setItem('cgs_profile', pending);
+              localStorage.removeItem(`cgs_pending_profile_${uid}`);
+            }
+            if (pendingVoice) {
+              localStorage.setItem(voiceKey, pendingVoice);
+              localStorage.setItem('cgs_voice', pendingVoice);
+              localStorage.removeItem(`cgs_pending_voice_${uid}`);
+            }
+          }
+        } catch {}
+        // Clean URL
+        window.history.replaceState({}, '', '/');
       }
-      if (pendingVoice) {
-        localStorage.setItem(voiceKey, pendingVoice);
-        localStorage.setItem('cgs_voice', pendingVoice);
-        localStorage.removeItem(`cgs_pending_voice_${uid}`);
+
+      // Strictly user-scoped — never fall back to another user's profile
+      const savedProfile = localStorage.getItem(profileKey);
+      if (!savedProfile) {
+        setRedirecting(true);
+        router.replace('/onboarding');
+        return;
       }
-      // Clean URL
-      window.history.replaceState({}, '', '/');
+
+      // Keep the device-wide keys in sync with the signed-in user
+      localStorage.setItem('cgs_profile', savedProfile);
+      try { setProfile(JSON.parse(savedProfile)); } catch {}
+
+      const savedVoice = localStorage.getItem(voiceKey);
+      if (savedVoice) {
+        localStorage.setItem('cgs_voice', savedVoice);
+        setVoice(savedVoice as VoiceKey);
+      }
+
+      const savedTheme = localStorage.getItem('cgs_theme');
+      if (savedTheme) setIsDark(savedTheme === 'dark');
+
+      const savedQuotes = localStorage.getItem('cgs_quotes');
+      if (savedQuotes) {
+        try { setQuotes(JSON.parse(savedQuotes)); } catch {}
+      }
+
+      setReady(true);
     }
 
-    const savedProfile = localStorage.getItem(profileKey) || localStorage.getItem('cgs_profile');
-    if (!savedProfile && user) {
-      setRedirecting(true);
-      router.replace('/onboarding');
-      return;
-    }
-
-    setReady(true);
-
-    const savedTheme = localStorage.getItem('cgs_theme');
-    if (savedTheme) setIsDark(savedTheme === 'dark');
-
-    if (savedProfile) {
-      try {
-        const p = JSON.parse(savedProfile);
-        // Migrate old key to user-scoped key
-        localStorage.setItem(profileKey, JSON.stringify(p));
-        setProfile(p);
-      } catch {}
-    }
-
-    const savedQuotes = localStorage.getItem('cgs_quotes');
-    if (savedQuotes) {
-      try { setQuotes(JSON.parse(savedQuotes)); } catch {}
-    }
-
-    const savedVoice = localStorage.getItem(voiceKey) || localStorage.getItem('cgs_voice');
-    if (savedVoice) {
-      localStorage.setItem(voiceKey, savedVoice);
-      setVoice(savedVoice as VoiceKey);
-    }
+    init();
   }, [isLoaded, user]);
 
   function toggleTheme() {
@@ -185,13 +192,16 @@ export default function HomePage() {
   function selectVoice(v: VoiceKey) {
     setVoice(v);
     localStorage.setItem('cgs_voice', v);
+    if (user) localStorage.setItem(`cgs_voice_${user.id}`, v);
     if (v !== 'custom') setVoiceSheet(false);
   }
 
   function selectNiche(n: string) {
     const updated = { ...profile, niche: n };
     setProfile(updated);
-    localStorage.setItem('cgs_profile', JSON.stringify(updated));
+    const json = JSON.stringify(updated);
+    localStorage.setItem('cgs_profile', json);
+    if (user) localStorage.setItem(`cgs_profile_${user.id}`, json);
     setCustomNiche('');
     setNicheSheet(false);
   }
@@ -204,7 +214,7 @@ export default function HomePage() {
 
   const selectedQuote = selectedIdx !== null ? quotes[selectedIdx] : null;
 
-  if (!ready || redirecting) return <div style={{ minHeight: '100vh', background: '#050507' }} />;
+  if (!ready || redirecting) return <div style={{ minHeight: '100vh' }} />;
 
   return (
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: barVisible ? '200px' : '96px', transition: 'padding-bottom 0.3s ease, background 0.2s' }}>

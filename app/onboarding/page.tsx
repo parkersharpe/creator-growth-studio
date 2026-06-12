@@ -41,7 +41,7 @@ const PLANS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const [step, setStep] = useState<Step>('welcome');
   const [animating, setAnimating] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
@@ -55,6 +55,11 @@ export default function OnboardingPage() {
 
   const stepIndex = STEPS.indexOf(step);
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Creator';
+
+  // Onboarding requires a signed-in account — payment is tied to the user
+  useEffect(() => {
+    if (isLoaded && !user) router.replace('/sign-in');
+  }, [isLoaded, user, router]);
 
   useEffect(() => {
     if (step === 'handle') {
@@ -155,7 +160,7 @@ export default function OnboardingPage() {
         .niche-pill:active { transform: scale(0.95); }
         .voice-card:active { transform: scale(0.98); }
         .plan-card:active { transform: scale(0.98); }
-        input::placeholder { color: rgba(255,255,255,0.2); }
+        input::placeholder { color: rgba(0,0,0,0.25); }
         ::-webkit-scrollbar { width: 0px; }
       `}</style>
 
@@ -176,7 +181,7 @@ export default function OnboardingPage() {
             <div key={s} style={{
               width: i === stepIndex ? '20px' : '6px',
               height: '6px', borderRadius: '3px',
-              background: i <= stepIndex ? '#ffffff' : 'rgba(0,0,0,0.12)',
+              background: i <= stepIndex ? '#000000' : 'rgba(0,0,0,0.12)',
               transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
             }} />
           ))}
@@ -303,9 +308,9 @@ export default function OnboardingPage() {
                     onClick={() => setNiche(n)}
                     style={{
                       padding: '10px 16px', borderRadius: '24px', cursor: 'pointer',
-                      background: niche === n ? '#ffffff' : 'rgba(255,255,255,0.05)',
-                      border: `1.5px solid ${niche === n ? '#ffffff' : 'rgba(0,0,0,0.07)'}`,
-                      color: niche === n ? '#000' : 'rgba(0,0,0,0.6)',
+                      background: niche === n ? '#000000' : '#ffffff',
+                      border: `1.5px solid ${niche === n ? '#000000' : 'rgba(0,0,0,0.1)'}`,
+                      color: niche === n ? '#ffffff' : 'rgba(0,0,0,0.6)',
                       fontSize: '0.82rem', fontWeight: niche === n ? 700 : 500,
                       transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
                       transform: niche === n ? 'scale(1.04)' : 'scale(1)',
@@ -346,8 +351,8 @@ export default function OnboardingPage() {
                     onClick={() => setVoice(v.id as VoiceKey)}
                     style={{
                       padding: '14px 16px', borderRadius: '16px', cursor: 'pointer',
-                      background: isSelected ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.03)',
-                      border: `1.5px solid ${isSelected ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                      background: isSelected ? '#000000' : '#ffffff',
+                      border: `1.5px solid ${isSelected ? '#000000' : 'rgba(0,0,0,0.08)'}`,
                       textAlign: 'left', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       fontFamily: 'inherit', flexShrink: 0,
@@ -355,13 +360,13 @@ export default function OnboardingPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isSelected ? '#fff' : 'rgba(0,0,0,0.7)', marginBottom: '3px' }}>{v.label}</div>
-                      <div style={{ fontSize: '0.73rem', color: 'rgba(0,0,0,0.3)', lineHeight: 1.4 }}>{v.desc}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isSelected ? '#ffffff' : 'rgba(0,0,0,0.7)', marginBottom: '3px' }}>{v.label}</div>
+                      <div style={{ fontSize: '0.73rem', color: isSelected ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.35)', lineHeight: 1.4 }}>{v.desc}</div>
                     </div>
                     <div style={{
                       width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, marginLeft: '12px',
-                      background: isSelected ? '#fff' : 'rgba(0,0,0,0.07)',
-                      border: `1.5px solid ${isSelected ? '#fff' : 'rgba(0,0,0,0.1)'}`,
+                      background: isSelected ? '#ffffff' : 'rgba(0,0,0,0.05)',
+                      border: `1.5px solid ${isSelected ? '#ffffff' : 'rgba(0,0,0,0.12)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.15s',
                     }}>
@@ -408,10 +413,9 @@ export default function OnboardingPage() {
                     onClick={() => setSelectedPlan(plan.id)}
                     style={{
                       padding: '16px', borderRadius: '18px', cursor: 'pointer',
-                      background: isSelected
-                        ? plan.highlight ? '#ffffff' : 'rgba(255,255,255,0.09)'
-                        : 'rgba(255,255,255,0.03)',
-                      border: `1.5px solid ${isSelected ? (plan.highlight ? '#fff' : 'rgba(0,0,0,0.25)') : 'rgba(255,255,255,0.07)'}`,
+                      background: '#ffffff',
+                      border: `1.5px solid ${isSelected ? '#000000' : 'rgba(0,0,0,0.08)'}`,
+                      boxShadow: isSelected ? '0 8px 24px rgba(0,0,0,0.08)' : 'none',
                       textAlign: 'left', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
                       fontFamily: 'inherit', flexShrink: 0,
                       animation: `fadeUp 0.3s ${i * 0.05}s ease both`,

@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
     line_items: [{ price: priceId, quantity: 1 }],
     subscription_data: { trial_period_days: 3 },
     customer_email: email || undefined,
+    client_reference_id: userId || undefined,
     metadata: { userId: userId || '', plan },
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/?subscribed=true`,
+    success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://creatorgrowthstudio.app'}/onboarding`,
   });
 

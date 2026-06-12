@@ -6,6 +6,7 @@ import { DARK, LIGHT, VOICES, NICHES } from '@/lib/theme';
 import { BrandProfile, MachineType, VoiceKey } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import LoadingSparkle from '@/components/LoadingSparkle';
+import AuthGuard from '@/components/AuthGuard';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -100,6 +101,7 @@ export default function MachinePage() {
   const items = content[activeType];
 
   return (
+    <AuthGuard>
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: '96px', transition: 'background 0.2s' }}>
       {/* Top bar */}
       <div style={{ padding: '20px 24px 16px' }}>
@@ -280,5 +282,6 @@ export default function MachinePage() {
         isDark={isDark}
       />
     </div>
+    </AuthGuard>
   );
 }

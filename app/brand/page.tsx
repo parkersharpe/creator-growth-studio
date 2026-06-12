@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import { DARK, LIGHT, VOICES, NICHES } from '@/lib/theme';
 import { BrandProfile, VoiceKey } from '@/lib/types';
 import Sheet from '@/components/Sheet';
 import BottomNav from '@/components/BottomNav';
+import AuthGuard from '@/components/AuthGuard';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -26,6 +28,7 @@ interface Kit {
 
 export default function BrandPage() {
   const router = useRouter();
+  const { user } = useUser();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<BrandProfile>(DEFAULT_PROFILE);
@@ -58,12 +61,15 @@ export default function BrandPage() {
   function updateProfile(patch: Partial<BrandProfile>) {
     const next = { ...profile, ...patch };
     setProfile(next);
-    localStorage.setItem('cgs_profile', JSON.stringify(next));
+    const json = JSON.stringify(next);
+    localStorage.setItem('cgs_profile', json);
+    if (user) localStorage.setItem(`cgs_profile_${user.id}`, json);
   }
 
   function selectVoice(v: VoiceKey) {
     setVoice(v);
     localStorage.setItem('cgs_voice', v);
+    if (user) localStorage.setItem(`cgs_voice_${user.id}`, v);
     setVoiceSheet(false);
   }
 
@@ -90,8 +96,13 @@ export default function BrandPage() {
   function loadKit(kit: Kit) {
     setProfile(kit.profile);
     setVoice(kit.voice);
-    localStorage.setItem('cgs_profile', JSON.stringify(kit.profile));
+    const json = JSON.stringify(kit.profile);
+    localStorage.setItem('cgs_profile', json);
     localStorage.setItem('cgs_voice', kit.voice);
+    if (user) {
+      localStorage.setItem(`cgs_profile_${user.id}`, json);
+      localStorage.setItem(`cgs_voice_${user.id}`, kit.voice);
+    }
   }
 
   async function handleUpgrade(plan: string) {
@@ -145,6 +156,7 @@ export default function BrandPage() {
   };
 
   return (
+    <AuthGuard>
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: '96px', transition: 'background 0.2s' }}>
       {/* Top bar */}
       <div style={{ padding: '20px 24px 16px' }}>
@@ -453,5 +465,6 @@ export default function BrandPage() {
         isDark={isDark}
       />
     </div>
+    </AuthGuard>
   );
 }

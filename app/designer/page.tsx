@@ -6,6 +6,7 @@ import { DARK, LIGHT, BG_PRESETS, GRADIENTS, FONTS, SEED_QUOTES } from '@/lib/th
 import { Quote, BrandProfile, DesignSettings } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import LoadingSparkle from '@/components/LoadingSparkle';
+import AuthGuard from '@/components/AuthGuard';
 
 const DEFAULT_PROFILE: BrandProfile = {
   name: 'Parker Sharpe',
@@ -231,8 +232,13 @@ export default function DesignerPage() {
         return;
       }
 
-      // Video frame
-      ctx.drawImage(video, 0, 0, W, H);
+      // Video frame — cover-crop to match the preview (no stretching)
+      const vw = video.videoWidth || W;
+      const vh = video.videoHeight || H;
+      const coverScale = Math.max(W / vw, H / vh);
+      const dw = vw * coverScale;
+      const dh = vh * coverScale;
+      ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
 
       // Dark overlay
       ctx.fillStyle = 'rgba(0,0,0,0.38)';
@@ -432,6 +438,7 @@ export default function DesignerPage() {
   const boxShadow = design.shadow ? '0 20px 60px rgba(0,0,0,0.5)' : 'none';
 
   return (
+    <AuthGuard>
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: '96px', transition: 'background 0.2s' }}>
       {/* Top bar */}
       <div style={{
@@ -1096,36 +1103,16 @@ export default function DesignerPage() {
             {downloading ? <LoadingSparkle label="Saving" light /> : bgMedia?.type === 'video' ? 'Download Video' : 'Download Image'}
           </button>
 
-          {/* Instagram Share */}
+          {/* Instagram Share — uses the same full-resolution export pipeline */}
           <button
-            onClick={async () => {
-              if (!cardRef.current) return;
-              try {
-                const html2canvas = (await import('html2canvas')).default;
-                const canvas = await html2canvas(cardRef.current, {
-                  scale: 3, useCORS: true, backgroundColor: null,
-                  width: cardRef.current.offsetWidth, height: cardRef.current.offsetHeight,
-                });
-                canvas.toBlob(async (blob) => {
-                  if (!blob) return;
-                  const file = new File([blob], 'quote.png', { type: 'image/png' });
-                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({ files: [file], title: 'Quote', text: currentQuote?.text });
-                  } else {
-                    const link = document.createElement('a');
-                    link.download = 'quote.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-                    setTimeout(() => window.open('https://www.instagram.com', '_blank'), 800);
-                  }
-                }, 'image/png');
-              } catch (e) { console.error(e); }
-            }}
+            onClick={bgMedia?.type === 'video' ? handleVideoExport : handleDownload}
+            disabled={downloading}
             style={{
               width: '100%', height: '56px',
               background: 'linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)',
               color: '#fff', border: 'none', borderRadius: '16px',
-              fontSize: '0.95rem', fontWeight: 800, cursor: 'pointer',
+              fontSize: '0.95rem', fontWeight: 800, cursor: downloading ? 'not-allowed' : 'pointer',
+              opacity: downloading ? 0.6 : 1,
               letterSpacing: '-0.02em', transition: 'opacity 0.15s',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
             }}
@@ -1247,6 +1234,7 @@ export default function DesignerPage() {
         </div>
       )}
     </div>
+    </AuthGuard>
   );
 }
 
