@@ -1,36 +1,92 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { NICHES, VOICES } from '@/lib/theme';
 import { VoiceKey } from '@/lib/types';
 
-const STEPS = ['name', 'handle', 'niche', 'voice', 'done'] as const;
+const STEPS = ['welcome', 'handle', 'niche', 'voice', 'plan'] as const;
 type Step = typeof STEPS[number];
+
+const PLANS = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: '$9.99',
+    period: '/mo',
+    desc: 'Perfect to get started',
+    features: ['50 quotes/day', '20 machine items/day', 'Basic designer', 'Download images'],
+    highlight: false,
+  },
+  {
+    id: 'creator',
+    name: 'Creator',
+    price: '$14.99',
+    period: '/mo',
+    desc: 'Most popular',
+    features: ['Unlimited quotes', 'Unlimited machine', 'Full designer + video', 'Priority support'],
+    highlight: true,
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: '$19.99',
+    period: '/mo',
+    desc: 'For power creators',
+    features: ['Everything in Creator', 'Multi-brand kits', 'Custom voice training', 'White-label exports'],
+    highlight: false,
+  },
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { user } = useUser();
-  const [step, setStep] = useState<Step>('name');
-  const [name, setName] = useState(user?.firstName || '');
+  const [step, setStep] = useState<Step>('welcome');
+  const [animating, setAnimating] = useState(false);
+  const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [handle, setHandle] = useState('');
   const [niche, setNiche] = useState('');
   const [voice, setVoice] = useState<VoiceKey>('parker');
+  const [selectedPlan, setSelectedPlan] = useState('creator');
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const stepIndex = STEPS.indexOf(step);
-  const progress = (stepIndex / (STEPS.length - 1)) * 100;
+  const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Creator';
 
-  function next() {
-    const idx = STEPS.indexOf(step);
-    if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
+  useEffect(() => {
+    if (step === 'handle') {
+      setTimeout(() => inputRef.current?.focus(), 400);
+    }
+  }, [step]);
+
+  function goNext() {
+    if (animating) return;
+    setAnimating(true);
+    setDirection('forward');
+    setTimeout(() => {
+      const idx = STEPS.indexOf(step);
+      if (idx < STEPS.length - 1) setStep(STEPS[idx + 1]);
+      setAnimating(false);
+    }, 280);
   }
 
-  function finish() {
-    // Save to localStorage
+  function goBack() {
+    if (animating || stepIndex === 0) return;
+    setAnimating(true);
+    setDirection('back');
+    setTimeout(() => {
+      setStep(STEPS[stepIndex - 1]);
+      setAnimating(false);
+    }, 280);
+  }
+
+  async function handleCheckout() {
     const profile = {
-      name: name || user?.fullName || 'Creator',
-      handle: handle.replace('@', ''),
+      name: user?.fullName || firstName,
+      handle: handle.replace('@', '') || user?.username || '',
       niche,
       website: '',
       avatar: user?.imageUrl || '/avatar.jpg',
@@ -38,200 +94,412 @@ export default function OnboardingPage() {
     };
     localStorage.setItem('cgs_profile', JSON.stringify(profile));
     localStorage.setItem('cgs_voice', voice);
-    router.push('/');
+
+    setCheckingOut(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: selectedPlan,
+          email: user?.primaryEmailAddress?.emailAddress || '',
+          userId: user?.id || '',
+        }),
+      });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch {
+      setCheckingOut(false);
+    }
   }
 
+  const slideStyle: React.CSSProperties = {
+    animation: animating
+      ? `${direction === 'forward' ? 'slideOutLeft' : 'slideOutRight'} 0.28s cubic-bezier(0.4,0,1,1) forwards`
+      : `${direction === 'forward' ? 'slideInRight' : 'slideInLeft'} 0.35s cubic-bezier(0.34,1.56,0.64,1) forwards`,
+  };
+
   return (
-    <div style={{
-      minHeight: '100vh', background: '#050507',
-      display: 'flex', flexDirection: 'column',
-      padding: '0 24px 48px',
-    }}>
-      {/* Progress bar */}
-      <div style={{ paddingTop: '60px', marginBottom: '48px' }}>
-        <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px' }}>
-          <div style={{
-            height: '100%', borderRadius: '2px',
-            background: '#ffffff',
-            width: `${progress}%`,
-            transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-          }} />
+    <div style={{ minHeight: '100vh', background: '#050507', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <style>{`
+        @keyframes slideInRight {
+          from { opacity: 0; transform: translateX(40px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOutLeft {
+          from { opacity: 1; transform: translateX(0); }
+          to { opacity: 0; transform: translateX(-40px); }
+        }
+        @keyframes slideInLeft {
+          from { opacity: 0; transform: translateX(-40px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideOutRight {
+          from { opacity: 1; transform: translateX(0); }
+          to { opacity: 0; transform: translateX(40px); }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.1); }
+          50% { box-shadow: 0 0 0 8px rgba(255,255,255,0); }
+        }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-8px); }
+        }
+        .niche-pill:active { transform: scale(0.95); }
+        .voice-card:active { transform: scale(0.98); }
+        .plan-card:active { transform: scale(0.98); }
+        input::placeholder { color: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar { width: 0px; }
+      `}</style>
+
+      {/* Top nav */}
+      <div style={{ padding: '52px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {stepIndex > 0 ? (
+          <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', fontFamily: 'inherit', padding: '8px 0' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back
+          </button>
+        ) : <div />}
+
+        {/* Progress dots */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {STEPS.map((s, i) => (
+            <div key={s} style={{
+              width: i === stepIndex ? '20px' : '6px',
+              height: '6px', borderRadius: '3px',
+              background: i <= stepIndex ? '#ffffff' : 'rgba(255,255,255,0.15)',
+              transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            }} />
+          ))}
         </div>
-        <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', marginTop: '10px', fontWeight: 500 }}>
-          Step {stepIndex + 1} of {STEPS.length - 1}
-        </p>
+
+        <div style={{ width: '60px' }} />
       </div>
 
-      {/* Step: Name */}
-      {step === 'name' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.2, marginBottom: '12px' }}>
-            What's your name?
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', marginBottom: '32px' }}>
-            This shows on your quote cards.
-          </p>
-          <input
-            autoFocus
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="e.g. Parker Sharpe"
-            style={{
-              width: '100%', boxSizing: 'border-box',
-              background: '#1a1a1e', border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '14px', padding: '16px 18px',
-              fontSize: '1rem', color: '#fff', outline: 'none',
-              fontFamily: 'inherit',
-            }}
-            onKeyDown={e => e.key === 'Enter' && name.trim() && next()}
-          />
-          <button
-            onClick={next}
-            disabled={!name.trim()}
-            style={btnStyle(!name.trim())}
-          >
-            Continue →
-          </button>
-        </div>
-      )}
+      {/* Content */}
+      <div key={step} style={{ ...slideStyle, flex: 1, display: 'flex', flexDirection: 'column', padding: '40px 24px 48px' }}>
 
-      {/* Step: Handle */}
-      {step === 'handle' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.2, marginBottom: '12px' }}>
-            Your social handle?
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', marginBottom: '32px' }}>
-            Appears on every card you design.
-          </p>
-          <div style={{ position: 'relative' }}>
-            <span style={{
-              position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)',
-              color: 'rgba(255,255,255,0.35)', fontSize: '1rem', fontWeight: 600,
-            }}>@</span>
-            <input
-              autoFocus
-              value={handle}
-              onChange={e => setHandle(e.target.value.replace('@', ''))}
-              placeholder="yourhandle"
-              style={{
-                width: '100%', boxSizing: 'border-box',
-                background: '#1a1a1e', border: '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '14px', padding: '16px 18px 16px 36px',
-                fontSize: '1rem', color: '#fff', outline: 'none',
-                fontFamily: 'inherit',
-              }}
-              onKeyDown={e => e.key === 'Enter' && handle.trim() && next()}
-            />
-          </div>
-          <button onClick={next} disabled={!handle.trim()} style={btnStyle(!handle.trim())}>
-            Continue →
-          </button>
-        </div>
-      )}
-
-      {/* Step: Niche */}
-      {step === 'niche' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.2, marginBottom: '12px' }}>
-            What's your niche?
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
-            AI will write content tailored to your audience.
-          </p>
-          <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {NICHES.map(n => (
-                <button
-                  key={n}
-                  onClick={() => setNiche(n)}
-                  style={{
-                    padding: '10px 18px', borderRadius: '20px', cursor: 'pointer',
-                    background: niche === n ? '#ffffff' : 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${niche === n ? '#ffffff' : 'rgba(255,255,255,0.1)'}`,
-                    color: niche === n ? '#000' : 'rgba(255,255,255,0.7)',
-                    fontSize: '0.82rem', fontWeight: niche === n ? 700 : 500,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button onClick={next} disabled={!niche} style={btnStyle(!niche)}>
-            Continue →
-          </button>
-        </div>
-      )}
-
-      {/* Step: Voice */}
-      {step === 'voice' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.2, marginBottom: '12px' }}>
-            Pick your voice.
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', marginBottom: '24px' }}>
-            How should your content sound?
-          </p>
-          <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {VOICES.filter(v => v.id !== 'custom').map(v => (
-              <button
-                key={v.id}
-                onClick={() => setVoice(v.id as VoiceKey)}
-                style={{
-                  padding: '14px 16px', borderRadius: '14px', cursor: 'pointer',
-                  background: voice === v.id ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${voice === v.id ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                  textAlign: 'left', transition: 'all 0.15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#fff', marginBottom: '2px' }}>{v.label}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>{v.desc}</div>
+        {/* WELCOME */}
+        {step === 'welcome' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              {/* Avatar */}
+              {user?.imageUrl && (
+                <div style={{ marginBottom: '28px', animation: 'float 3s ease-in-out infinite' }}>
+                  <div style={{ width: '72px', height: '72px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.15)', boxShadow: '0 0 40px rgba(255,255,255,0.08)' }}>
+                    <img src={user.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
                 </div>
-                {voice === v.id && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M20 6L9 17l-5-5"/>
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-          <button onClick={next} style={btnStyle(false)}>
-            Continue →
-          </button>
-        </div>
-      )}
+              )}
 
-      {/* Step: Done */}
-      {step === 'done' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-          <div style={{ fontSize: '4rem', marginBottom: '24px' }}>🚀</div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.2, marginBottom: '12px' }}>
-            You're all set, {name.split(' ')[0]}!
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.45)', marginBottom: '40px', lineHeight: 1.6 }}>
-            Your studio is ready. Start generating content that sounds exactly like you.
-          </p>
-          <button onClick={finish} style={btnStyle(false)}>
-            Enter Creator Growth Studio ✦
-          </button>
-        </div>
-      )}
+              <div style={{ marginBottom: '8px', animation: 'fadeUp 0.5s ease forwards' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Welcome</span>
+              </div>
+
+              <h1 style={{ fontSize: '2.6rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.05em', lineHeight: 1.1, marginBottom: '16px', animation: 'fadeUp 0.5s 0.1s ease both' }}>
+                Hey {firstName},<br />let's build<br />your studio. ✦
+              </h1>
+
+              <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: '40px', animation: 'fadeUp 0.5s 0.2s ease both' }}>
+                Takes 60 seconds. We'll set up your AI voice, your niche, and get you creating.
+              </p>
+
+              {/* Feature pills */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '40px', animation: 'fadeUp 0.5s 0.3s ease both' }}>
+                {['AI content in your voice', 'Designer templates', 'Post-ready in 60s'].map(f => (
+                  <span key={f} style={{ padding: '6px 12px', borderRadius: '20px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                    ✦ {f}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={goNext} style={ctaStyle(false)}>
+              Let's go →
+            </button>
+          </div>
+        )}
+
+        {/* HANDLE */}
+        {step === 'handle' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 1 of 4</p>
+              <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+                What's your<br />social handle?
+              </h1>
+              <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '36px', lineHeight: 1.5 }}>
+                We'll put it on every quote card you create.
+              </p>
+
+              <div style={{
+                position: 'relative',
+                borderRadius: '16px',
+                background: '#0f0f12',
+                border: `1.5px solid ${inputFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                boxShadow: inputFocused ? '0 0 0 4px rgba(255,255,255,0.04)' : 'none',
+                overflow: 'hidden',
+              }}>
+                <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontSize: '1.1rem', fontWeight: 700, transition: 'color 0.2s', pointerEvents: 'none' }}>@</span>
+                <input
+                  ref={inputRef}
+                  value={handle}
+                  onChange={e => setHandle(e.target.value.replace('@', '').replace(/\s/g, ''))}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder="yourhandle"
+                  onKeyDown={e => e.key === 'Enter' && handle.trim() && goNext()}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: 'transparent',
+                    border: 'none', outline: 'none',
+                    padding: '18px 18px 18px 38px',
+                    fontSize: '1.1rem', fontWeight: 600, color: '#fff',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+
+              {handle && (
+                <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.3)', marginTop: '10px' }}>
+                  Will appear as <span style={{ color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>@{handle}</span>
+                </p>
+              )}
+            </div>
+
+            <button onClick={goNext} disabled={!handle.trim()} style={ctaStyle(!handle.trim())}>
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* NICHE */}
+        {step === 'niche' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 2 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+              What's your<br />niche?
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '28px', lineHeight: 1.5 }}>
+              AI writes content tailored to your audience.
+            </p>
+
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingBottom: '8px' }}>
+                {NICHES.map((n, i) => (
+                  <button
+                    key={n}
+                    className="niche-pill"
+                    onClick={() => setNiche(n)}
+                    style={{
+                      padding: '10px 16px', borderRadius: '24px', cursor: 'pointer',
+                      background: niche === n ? '#ffffff' : 'rgba(255,255,255,0.05)',
+                      border: `1.5px solid ${niche === n ? '#ffffff' : 'rgba(255,255,255,0.08)'}`,
+                      color: niche === n ? '#000' : 'rgba(255,255,255,0.65)',
+                      fontSize: '0.82rem', fontWeight: niche === n ? 700 : 500,
+                      transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+                      transform: niche === n ? 'scale(1.04)' : 'scale(1)',
+                      fontFamily: 'inherit',
+                      animation: `fadeUp 0.3s ${i * 0.02}s ease both`,
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={goNext} disabled={!niche} style={ctaStyle(!niche)}>
+              {niche ? `${niche} →` : 'Pick one to continue'}
+            </button>
+          </div>
+        )}
+
+        {/* VOICE */}
+        {step === 'voice' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 3 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+              Pick your<br />content voice.
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', marginBottom: '24px', lineHeight: 1.5 }}>
+              How should your posts sound?
+            </p>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+              {VOICES.filter(v => v.id !== 'custom').map((v, i) => {
+                const isSelected = voice === v.id;
+                return (
+                  <button
+                    key={v.id}
+                    className="voice-card"
+                    onClick={() => setVoice(v.id as VoiceKey)}
+                    style={{
+                      padding: '14px 16px', borderRadius: '16px', cursor: 'pointer',
+                      background: isSelected ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)',
+                      border: `1.5px solid ${isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                      textAlign: 'left', transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      fontFamily: 'inherit', flexShrink: 0,
+                      animation: `fadeUp 0.3s ${i * 0.03}s ease both`,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isSelected ? '#fff' : 'rgba(255,255,255,0.75)', marginBottom: '3px' }}>{v.label}</div>
+                      <div style={{ fontSize: '0.73rem', color: 'rgba(255,255,255,0.35)', lineHeight: 1.4 }}>{v.desc}</div>
+                    </div>
+                    <div style={{
+                      width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0, marginLeft: '12px',
+                      background: isSelected ? '#fff' : 'rgba(255,255,255,0.08)',
+                      border: `1.5px solid ${isSelected ? '#fff' : 'rgba(255,255,255,0.12)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.15s',
+                    }}>
+                      {isSelected && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={goNext} style={ctaStyle(false)}>
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* PLAN */}
+        {step === 'plan' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 4 of 4</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '8px' }}>
+              Choose your<br />plan.
+            </h1>
+
+            {/* Trial badge */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '20px', padding: '6px 12px', marginBottom: '24px', width: 'fit-content' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>3-day free trial on all plans</span>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              {PLANS.map((plan, i) => {
+                const isSelected = selectedPlan === plan.id;
+                return (
+                  <button
+                    key={plan.id}
+                    className="plan-card"
+                    onClick={() => setSelectedPlan(plan.id)}
+                    style={{
+                      padding: '16px', borderRadius: '18px', cursor: 'pointer',
+                      background: isSelected
+                        ? plan.highlight ? '#ffffff' : 'rgba(255,255,255,0.09)'
+                        : 'rgba(255,255,255,0.03)',
+                      border: `1.5px solid ${isSelected ? (plan.highlight ? '#fff' : 'rgba(255,255,255,0.3)') : 'rgba(255,255,255,0.07)'}`,
+                      textAlign: 'left', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                      fontFamily: 'inherit', flexShrink: 0,
+                      animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
+                      position: 'relative',
+                    }}
+                  >
+                    {plan.highlight && isSelected && (
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: '#000', color: '#fff', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        Most Popular
+                      </span>
+                    )}
+                    {plan.highlight && !isSelected && (
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                        Most Popular
+                      </span>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div>
+                        <div style={{ fontSize: '1rem', fontWeight: 800, color: isSelected && plan.highlight ? '#000' : '#fff', marginBottom: '2px' }}>{plan.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.35)', fontWeight: 500 }}>{plan.desc}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontSize: '1.3rem', fontWeight: 900, color: isSelected && plan.highlight ? '#000' : '#fff' }}>{plan.price}</span>
+                        <span style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)', fontWeight: 500 }}>{plan.period}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {plan.features.map(f => (
+                        <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.3)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                          <span style={{ fontSize: '0.76rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.45)', fontWeight: 500 }}>{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={checkingOut}
+              style={{
+                ...ctaStyle(false),
+                background: checkingOut ? 'rgba(255,255,255,0.1)' : '#ffffff',
+                color: checkingOut ? 'rgba(255,255,255,0.4)' : '#000',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              {checkingOut ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'spin-slow 0.8s linear infinite' }}>
+                    <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" strokeOpacity="0.3"/>
+                    <path d="M21 12a9 9 0 00-9-9"/>
+                  </svg>
+                  Setting up your studio...
+                </>
+              ) : (
+                `Start 3-day free trial →`
+              )}
+            </button>
+            <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'rgba(255,255,255,0.25)', marginTop: '10px' }}>
+              Cancel anytime. No charge for 3 days.
+            </p>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
 
-function btnStyle(disabled: boolean): React.CSSProperties {
+function ctaStyle(disabled: boolean): React.CSSProperties {
   return {
-    width: '100%', height: '56px', marginTop: '24px',
-    background: disabled ? 'rgba(255,255,255,0.08)' : '#ffffff',
-    color: disabled ? 'rgba(255,255,255,0.25)' : '#000000',
-    border: 'none', borderRadius: '16px',
-    fontSize: '0.95rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer',
-    letterSpacing: '-0.02em', transition: 'all 0.15s',
-    flexShrink: 0,
+    width: '100%', height: '58px',
+    background: disabled ? 'rgba(255,255,255,0.06)' : '#ffffff',
+    color: disabled ? 'rgba(255,255,255,0.2)' : '#000000',
+    border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.06)' : 'transparent'}`,
+    borderRadius: '18px',
+    fontSize: '0.96rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer',
+    letterSpacing: '-0.02em',
+    transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
+    flexShrink: 0, fontFamily: 'inherit',
   };
 }
