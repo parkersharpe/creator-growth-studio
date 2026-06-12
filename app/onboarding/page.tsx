@@ -244,10 +244,10 @@ export default function OnboardingPage() {
               <div style={{
                 position: 'relative',
                 borderRadius: '16px',
-                background: '#000000',
-                border: `1.5px solid ${inputFocused ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)'}`,
+                background: '#ffffff',
+                border: `1.5px solid ${inputFocused ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}`,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
-                boxShadow: inputFocused ? '0 0 0 4px rgba(255,255,255,0.04)' : 'none',
+                boxShadow: inputFocused ? '0 0 0 4px rgba(0,0,0,0.06)' : 'none',
                 overflow: 'hidden',
               }}>
                 <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.2)', fontSize: '1.1rem', fontWeight: 700, transition: 'color 0.2s', pointerEvents: 'none' }}>@</span>
@@ -419,23 +419,23 @@ export default function OnboardingPage() {
                     }}
                   >
                     {plan.highlight && isSelected && (
-                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: '#000', color: '#000', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: '#000', color: '#fff', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                         Most Popular
                       </span>
                     )}
                     {plan.highlight && !isSelected && (
-                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: 'rgba(0,0,0,0.1)', color: 'rgba(0,0,0,0.45)', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                      <span style={{ position: 'absolute', top: '-1px', right: '14px', background: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)', fontSize: '0.62rem', fontWeight: 800, padding: '3px 8px', borderRadius: '0 0 8px 8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                         Most Popular
                       </span>
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                       <div>
-                        <div style={{ fontSize: '1rem', fontWeight: 800, color: isSelected && plan.highlight ? '#000' : '#fff', marginBottom: '2px' }}>{plan.name}</div>
-                        <div style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.3)', fontWeight: 500 }}>{plan.desc}</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 800, color: '#000', marginBottom: '2px' }}>{plan.name}</div>
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(0,0,0,0.45)', fontWeight: 500 }}>{plan.desc}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '1.3rem', fontWeight: 900, color: isSelected && plan.highlight ? '#000' : '#fff' }}>{plan.price}</span>
+                        <span style={{ fontSize: '1.3rem', fontWeight: 900, color: '#000' }}>{plan.price}</span>
                         <span style={{ fontSize: '0.72rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.3)', fontWeight: 500 }}>{plan.period}</span>
                       </div>
                     </div>
@@ -443,10 +443,10 @@ export default function OnboardingPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {plan.features.map(f => (
                         <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={isSelected && plan.highlight ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.25)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.35)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M20 6L9 17l-5-5"/>
                           </svg>
-                          <span style={{ fontSize: '0.76rem', color: isSelected && plan.highlight ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)', fontWeight: 500 }}>{f}</span>
+                          <span style={{ fontSize: '0.76rem', color: 'rgba(0,0,0,0.55)', fontWeight: 500 }}>{f}</span>
                         </div>
                       ))}
                     </div>
@@ -460,8 +460,8 @@ export default function OnboardingPage() {
               disabled={checkingOut}
               style={{
                 ...ctaStyle(false),
-                background: checkingOut ? 'rgba(0,0,0,0.08)' : '#ffffff',
-                color: checkingOut ? 'rgba(0,0,0,0.35)' : '#000',
+                background: checkingOut ? 'rgba(0,0,0,0.08)' : '#000000',
+                color: checkingOut ? 'rgba(0,0,0,0.35)' : '#ffffff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               }}
             >
@@ -491,9 +491,9 @@ export default function OnboardingPage() {
 function ctaStyle(disabled: boolean): React.CSSProperties {
   return {
     width: '100%', height: '58px',
-    background: disabled ? 'rgba(0,0,0,0.05)' : '#ffffff',
-    color: disabled ? 'rgba(255,255,255,0.2)' : '#000000',
-    border: `1.5px solid ${disabled ? 'rgba(0,0,0,0.05)' : 'transparent'}`,
+    background: disabled ? 'rgba(0,0,0,0.06)' : '#000000',
+    color: disabled ? 'rgba(0,0,0,0.25)' : '#ffffff',
+    border: `1.5px solid ${disabled ? 'rgba(0,0,0,0.06)' : 'transparent'}`,
     borderRadius: '18px',
     fontSize: '0.96rem', fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer',
     letterSpacing: '-0.02em',
