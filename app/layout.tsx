@@ -7,9 +7,16 @@ import './globals.css'
 const dmSans = DM_Sans({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.creatorgrowthstudio.app'),
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
   title: 'Creator Growth Studio',
   description: 'The AI content studio that writes in your voice, designs your graphics, and gets you posting in under 60 seconds.',
@@ -17,9 +24,16 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Creator Growth Studio',
     description: 'AI-powered content studio for personal brands.',
-    url: 'https://creatorgrowthstudio.app',
+    url: 'https://www.creatorgrowthstudio.app',
     siteName: 'Creator Growth Studio',
     type: 'website',
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Creator Growth Studio' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Creator Growth Studio',
+    description: 'AI-powered content studio for personal brands.',
+    images: ['/og.png'],
   },
 }
 
