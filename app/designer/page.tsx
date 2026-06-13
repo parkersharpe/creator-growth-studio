@@ -23,7 +23,7 @@ const DEFAULT_DESIGN: DesignSettings = {
   textColor: '#FFFFFF',
   handleColor: '#888888',
   font: 'Playfair Display',
-  borderRadius: 16,
+  borderRadius: 0,
   shadow: true,
   padding: 40,
   photoShape: 'circle',
@@ -53,6 +53,8 @@ export default function DesignerPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [readyVideo, setReadyVideo] = useState<File | null>(null);
   const [plan, setPlan] = useState<string | null>(null);
+  const modalBoxRef = useRef<HTMLDivElement>(null);
+  const [modalScale, setModalScale] = useState(1);
 
   const VIDEO_LIMIT_STARTER = 10;
 
@@ -114,6 +116,19 @@ export default function DesignerPage() {
     fetch('/api/subscription').then(r => r.json()).then(d => setPlan(d.plan)).catch(() => {});
   }, []);
 
+  // Full-size preview: scale a natural-size card to fill the fitted viewport box, so the
+  // modal is an exact proportional replica of the export (no text distortion or overflow).
+  useEffect(() => {
+    if (!showPreview) return;
+    const el = modalBoxRef.current;
+    if (!el) return;
+    const update = () => setModalScale(el.offsetWidth / naturalW);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showPreview, format, naturalW]);
+
   // Starter plan gets a monthly video export allowance; Unlimited has no cap
   function videoExportsLeft(): number {
     if (plan !== 'starter') return Infinity;
@@ -163,8 +178,8 @@ export default function DesignerPage() {
     const vid = document.createElement('video');
     vid.src = url;
     vid.onloadedmetadata = () => {
-      if (vid.duration > 30) {
-        setVideoError(`Video must be 30 seconds or less. Your clip is ${vid.duration.toFixed(1)}s — trim it and re-upload.`);
+      if (vid.duration > 60) {
+        setVideoError(`Video must be 1 minute or less. Your clip is ${vid.duration.toFixed(1)}s — trim it and re-upload.`);
         URL.revokeObjectURL(url);
       } else {
         setBgMedia({ type: 'video', url, duration: vid.duration });
@@ -176,12 +191,15 @@ export default function DesignerPage() {
     e.target.value = '';
   }
 
-  // Keep video looping within the 7s window
+  // Keep the preview looping within the selected window (full clip when under 7s)
   function handleVideoTimeUpdate() {
     const vid = videoRef.current;
     if (!vid) return;
-    if (vid.currentTime >= clipStart + clipDuration) {
-      vid.currentTime = clipStart;
+    const fullDur = bgMedia?.duration ?? clipDuration;
+    const windowDur = Math.min(clipDuration, fullDur);
+    const windowStart = fullDur > clipDuration ? clipStart : 0;
+    if (vid.currentTime >= windowStart + windowDur) {
+      vid.currentTime = windowStart;
     }
   }
 
@@ -222,13 +240,29 @@ export default function DesignerPage() {
     offscreen.width = W;
     offscreen.height = H;
     const ctx = offscreen.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Export window: clips shorter than 7s export at their true length (no black padding),
+    // longer clips export the selected 7s window.
+    const fullDur = bgMedia?.duration ?? clipDuration;
+    const windowDur = Math.min(clipDuration, fullDur);
+    const windowStart = fullDur > clipDuration ? clipStart : 0;
 
     const video = videoRef.current;
-    video.currentTime = clipStart;
+    video.loop = true;
+    video.currentTime = windowStart;
     await new Promise<void>(r => { video.onseeked = () => r(); });
-    video.play();
+    await video.play().catch(() => {});
 
-    // Load avatar image onto offscreen canvas
+    // Wait for a real painted frame so recording never starts on a black canvas
+    await new Promise<void>(resolve => {
+      const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => void };
+      if (typeof v.requestVideoFrameCallback === 'function') v.requestVideoFrameCallback(() => resolve());
+      else setTimeout(resolve, 150);
+    });
+
+    // Load avatar image
     const avatarImg = new window.Image();
     avatarImg.crossOrigin = 'anonymous';
     avatarImg.src = profile.avatar;
@@ -236,46 +270,12 @@ export default function DesignerPage() {
 
     // Scale factors from card design coords to export resolution
     const scaleX = W / naturalW;
-    const scaleY = H / naturalH;
     const pad = design.padding * scaleX;
     const fontSize = (design.fontSize ?? 24) * scaleX;
     const photoSize = design.photoSize * scaleX;
 
-    const stream = offscreen.captureStream(30);
-    let recorder: MediaRecorder;
-    try {
-      recorder = new MediaRecorder(stream, { mimeType: recordMime, videoBitsPerSecond: 8_000_000 });
-    } catch {
-      setDownloading(false);
-      alert('Video recording failed to start — exporting a still image instead.');
-      await handleDownload();
-      return;
-    }
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-
-    recorder.onstop = () => {
-      const containerType = recordMime.split(';')[0];
-      const ext = containerType === 'video/mp4' ? 'mp4' : 'webm';
-      const blob = new Blob(chunks, { type: containerType });
-      const file = new File([blob], `CreatorGrowthStudio-${format.replace(':','-')}.${ext}`, { type: containerType });
-      countVideoExport();
-      // iOS requires a fresh tap to open the share sheet — show a "ready" screen instead of auto-sharing
-      setReadyVideo(file);
-      setDownloading(false);
-    };
-
-    recorder.start(100);
-    const startTime = performance.now();
-
-    function drawFrame() {
-      const elapsed = performance.now() - startTime;
-      if (elapsed >= clipDuration * 1000) {
-        recorder.stop();
-        video.pause();
-        return;
-      }
-
+    // Composes one full frame onto the canvas — used to prime the first frame and every recorded frame
+    function composeFrame() {
       // Video frame — cover-crop to match the preview (no stretching)
       const vw = video.videoWidth || W;
       const vh = video.videoHeight || H;
@@ -309,30 +309,100 @@ export default function DesignerPage() {
       const textStartY = (H - totalH) / 2 - photoSize / 2;
       lines.forEach((line, i) => ctx.fillText(line, pad, textStartY + i * lineH + fontSize));
 
-      // Profile row
+      // Profile row — avatar
       const profileY = H - pad - photoSize;
       ctx.save();
       ctx.beginPath();
       if (design.photoShape === 'circle') {
         ctx.arc(pad + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
       } else {
-        ctx.roundRect?.(pad, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 : 0);
+        ctx.roundRect?.(pad, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 * scaleX : 0);
       }
       ctx.clip();
       ctx.drawImage(avatarImg, pad, profileY, photoSize, photoSize);
       ctx.restore();
 
+      // Name
       const nameSize = Math.round(16 * scaleX);
       const handleSize = Math.round(13 * scaleX);
       const textX = pad + photoSize + 10 * scaleX;
+      const nameY = profileY + photoSize * 0.35;
       ctx.fillStyle = design.textColor;
       ctx.font = `700 ${nameSize}px DM Sans, sans-serif`;
       ctx.textBaseline = 'middle';
-      ctx.fillText(profile.name, textX, profileY + photoSize * 0.35);
+      ctx.fillText(profile.name, textX, nameY);
+
+      // Verified badge — same star-burst path as the on-screen badge
+      if (design.verified) {
+        const nameW = ctx.measureText(profile.name).width;
+        const badge = nameSize * 1.05;
+        ctx.save();
+        ctx.translate(textX + nameW + 6 * scaleX, nameY - badge / 2);
+        ctx.scale(badge / 24, badge / 24);
+        const star = new Path2D('M12 2L13.8 5.4L17.6 4.2L17.2 8.1L21 9.6L18.6 12.8L21 16L17.2 17.5L17.6 21.4L13.8 20.2L12 23.6L10.2 20.2L6.4 21.4L6.8 17.5L3 16L5.4 12.8L3 9.6L6.8 8.1L6.4 4.2L10.2 5.4L12 2Z');
+        ctx.fillStyle = '#1877F2';
+        ctx.fill(star);
+        const check = new Path2D('M8.5 12.5L10.5 14.5L15.5 9.5');
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke(check);
+        ctx.restore();
+      }
+
+      // Handle
       ctx.fillStyle = 'rgba(255,255,255,0.65)';
       ctx.font = `500 ${handleSize}px DM Sans, sans-serif`;
+      ctx.textBaseline = 'middle';
       ctx.fillText(`@${profile.handle}`, textX, profileY + photoSize * 0.72);
+    }
 
+    // Prime the canvas with a real frame BEFORE recording starts (kills the black intro)
+    composeFrame();
+
+    const stream = offscreen.captureStream(30);
+    const bitrate = Math.min(24_000_000, Math.round(W * H * 30 * 0.18)); // resolution-aware, high quality
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: recordMime, videoBitsPerSecond: bitrate });
+    } catch {
+      setDownloading(false);
+      video.loop = false;
+      alert('Video recording failed to start — exporting a still image instead.');
+      await handleDownload();
+      return;
+    }
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+    recorder.onstop = () => {
+      const containerType = recordMime.split(';')[0];
+      const ext = containerType === 'video/mp4' ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: containerType });
+      const file = new File([blob], `CreatorGrowthStudio-${format.replace(':','-')}.${ext}`, { type: containerType });
+      countVideoExport();
+      // iOS requires a fresh tap to open the share sheet — show a "ready" screen instead of auto-sharing
+      setReadyVideo(file);
+      setDownloading(false);
+    };
+
+    recorder.start(100);
+    const startTime = performance.now();
+
+    function drawFrame() {
+      const elapsed = performance.now() - startTime;
+      if (elapsed >= windowDur * 1000) {
+        recorder.stop();
+        video.pause();
+        video.loop = false;
+        return;
+      }
+      // Keep the playhead inside the selected window so trimmed clips loop seamlessly
+      if (video.currentTime >= windowStart + windowDur || video.currentTime < windowStart - 0.05) {
+        video.currentTime = windowStart;
+      }
+      composeFrame();
       requestAnimationFrame(drawFrame);
     }
 
@@ -609,6 +679,7 @@ export default function DesignerPage() {
               src={bgMedia.url}
               autoPlay
               muted
+              loop
               playsInline
               onTimeUpdate={handleVideoTimeUpdate}
               style={{
@@ -987,7 +1058,7 @@ export default function DesignerPage() {
                     <path d="M10 8l6 4-6 4V8z" fill={t.text3} stroke="none"/>
                   </svg>
                   <span style={{ fontSize: '0.82rem', fontWeight: 600, color: t.text2 }}>Upload Video</span>
-                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Up to 30 seconds</span>
+                  <span style={{ fontSize: '0.72rem', color: t.text3 }}>MP4, MOV · Up to 1 minute</span>
                   <input type="file" accept="video/*" onChange={handleVideoUpload} style={{ display: 'none' }} />
                 </label>
               )}
@@ -1225,55 +1296,65 @@ export default function DesignerPage() {
             Tap anywhere to close
           </p>
 
-          {/* Full-size card replica — constrained by viewport, exact aspect ratio */}
+          {/* Full-size card replica — fitted to viewport, rendered at natural size then scaled
+              so proportions exactly match the export (no text distortion, never overflows) */}
           <div
+            ref={modalBoxRef}
             onClick={e => e.stopPropagation()}
             style={{
-              ...cardBgStyle,
-              borderRadius: `${design.borderRadius}px`,
-              padding: `${design.padding}px`,
-              aspectRatio: FORMATS.find(f => f.id === format)?.ratio ?? '1 / 1',
-              // Fit within screen: tall formats constrain by height, wide by width
-              maxHeight: ['9:16','4:5','2:3'].includes(format) ? '80vh' : 'none',
-              maxWidth: ['16:9','1:1'].includes(format) ? 'min(430px, 92vw)' : `calc(80vh * ${fw} / ${fh})`,
-              width: ['9:16','4:5','2:3'].includes(format) ? 'auto' : 'min(430px, 92vw)',
-              height: ['9:16','4:5','2:3'].includes(format) ? '80vh' : 'auto',
-              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+              width: `min(92vw, calc(80vh * ${fw} / ${fh}))`,
+              height: `min(80vh, calc(92vw * ${fh} / ${fw}))`,
               position: 'relative', overflow: 'hidden',
+              borderRadius: `${design.borderRadius}px`,
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+              flexShrink: 0,
             }}
           >
-            {/* Media background */}
-            {bgMedia?.type === 'image' && (
-              <img src={bgMedia.url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
-            )}
-            {bgMedia?.type === 'video' && (
-              <video src={bgMedia.url} autoPlay muted playsInline loop style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
-            )}
-            {bgMedia && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 1 }} />}
-
-            <p style={{
-              fontFamily: `'${design.font}', serif`,
-              color: design.textColor,
-              fontSize: `${design.fontSize ?? 24}px`,
-              lineHeight: 1.35, fontWeight: 600,
-              flex: 1, display: 'flex', alignItems: 'center',
-              position: 'relative', zIndex: 2,
-              margin: 0, wordBreak: 'break-word',
+            <div style={{
+              width: naturalW, height: naturalH,
+              transformOrigin: 'top left',
+              transform: `scale(${modalScale})`,
             }}>
-              {editableTexts[activeQuote] ?? currentQuote?.text}
-            </p>
+              <div style={{
+                ...cardBgStyle,
+                width: '100%', height: '100%',
+                padding: `${design.padding}px`,
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                {/* Media background */}
+                {bgMedia?.type === 'image' && (
+                  <img src={bgMedia.url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
+                )}
+                {bgMedia?.type === 'video' && (
+                  <video src={bgMedia.url} autoPlay muted playsInline loop style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }} />
+                )}
+                {bgMedia && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.38)', zIndex: 1 }} />}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-              <img src={profile.avatar} alt={profile.name} style={{ width: `${design.photoSize}px`, height: `${design.photoSize}px`, borderRadius: design.photoShape === 'circle' ? '50%' : design.photoShape === 'rounded' ? '12px' : '0', objectFit: 'cover', flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: design.textColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {profile.name}
-                  {design.verified && (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2L13.8 5.4L17.6 4.2L17.2 8.1L21 9.6L18.6 12.8L21 16L17.2 17.5L17.6 21.4L13.8 20.2L12 23.6L10.2 20.2L6.4 21.4L6.8 17.5L3 16L5.4 12.8L3 9.6L6.8 8.1L6.4 4.2L10.2 5.4L12 2Z" fill="#1877F2"/><path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )}
+                <p style={{
+                  fontFamily: `'${design.font}', serif`,
+                  color: design.textColor,
+                  fontSize: `${design.fontSize ?? 24}px`,
+                  lineHeight: 1.35, fontWeight: 600,
+                  flex: 1, display: 'flex', alignItems: 'center',
+                  position: 'relative', zIndex: 2,
+                  margin: 0, wordBreak: 'break-word',
+                }}>
+                  {editableTexts[activeQuote] ?? currentQuote?.text}
+                </p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+                  <img src={profile.avatar} alt={profile.name} style={{ width: `${design.photoSize}px`, height: `${design.photoSize}px`, borderRadius: photoRadius, objectFit: 'cover', flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: design.textColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {profile.name}
+                      {design.verified && (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><path d="M12 2L13.8 5.4L17.6 4.2L17.2 8.1L21 9.6L18.6 12.8L21 16L17.2 17.5L17.6 21.4L13.8 20.2L12 23.6L10.2 20.2L6.4 21.4L6.8 17.5L3 16L5.4 12.8L3 9.6L6.8 8.1L6.4 4.2L10.2 5.4L12 2Z" fill="#1877F2"/><path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: design.handleColor === 'rgba(255,255,255,0.65)' && !bgMedia ? `${design.textColor}99` : design.handleColor }}>@{profile.handle}</div>
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.8rem', color: design.handleColor === 'rgba(255,255,255,0.65)' && !bgMedia ? `${design.textColor}99` : design.handleColor }}>@{profile.handle}</div>
               </div>
             </div>
           </div>
