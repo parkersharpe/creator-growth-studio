@@ -40,6 +40,16 @@ function mergeCollections(localRaw: string | null, cloudRaw: string | null): str
   }
 }
 
+// Per-key local "last edited" timestamps, so a stale cloud copy can't overwrite
+// a newer local change (e.g. a profile photo whose upload was dropped).
+const TS_PREFIX = 'cgs_ts_';
+function localTs(key: string): number {
+  try { return Number(localStorage.getItem(TS_PREFIX + key) || 0); } catch { return 0; }
+}
+function setLocalTs(key: string, ts: number) {
+  try { localStorage.setItem(TS_PREFIX + key, String(ts)); } catch {}
+}
+
 function idOf(item: unknown): string {
   if (item && typeof item === 'object' && 'id' in item) return String((item as { id: unknown }).id);
   return JSON.stringify(item);
@@ -105,6 +115,7 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
     }
 
     function queueUpload(key: string, value: string) {
+      setLocalTs(key, Date.now()); // stamp the genuine local edit time
       pending.current[key] = value;
       if (flushTimer.current) clearTimeout(flushTimer.current);
       // Short coalescing window — long enough to batch slider drags, short enough
@@ -127,7 +138,10 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch('/api/data');
         if (res.ok) {
-          const { data } = await res.json() as { data: Record<string, string> };
+          const { data, updatedAt = {} } = await res.json() as {
+            data: Record<string, string>;
+            updatedAt?: Record<string, number>;
+          };
           const ownsDevice = !!localStorage.getItem(`cgs_profile_${uid}`);
           const toUpload: Record<string, string> = {};
 
@@ -145,9 +159,23 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
             }
 
             if (serverVal !== undefined) {
-              // Cloud is the source of truth for current-state keys
-              localStorage.setItem(key, serverVal);
-              if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, serverVal);
+              const localVal = USER_SCOPED.includes(key)
+                ? localStorage.getItem(`${key}_${uid}`) || localStorage.getItem(key)
+                : localStorage.getItem(key);
+              const serverTs = updatedAt[key] || 0;
+
+              if (localVal && localVal !== serverVal && localTs(key) > serverTs) {
+                // Local change is newer than the cloud copy — keep it, push it up.
+                // Prevents a stale cloud value from clobbering a recent local edit.
+                localStorage.setItem(key, localVal);
+                if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, localVal);
+                toUpload[key] = localVal;
+              } else {
+                // Cloud wins — align the local timestamp to the cloud version's time
+                localStorage.setItem(key, serverVal);
+                if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, serverVal);
+                setLocalTs(key, serverTs);
+              }
             } else if (ownsDevice) {
               const localVal = USER_SCOPED.includes(key)
                 ? localStorage.getItem(`${key}_${uid}`) || localStorage.getItem(key)

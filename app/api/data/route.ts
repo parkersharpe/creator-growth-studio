@@ -38,10 +38,14 @@ export async function GET() {
 
   try {
     await ensureTable();
-    const { rows } = await sql`SELECT key, value FROM user_data WHERE user_id = ${userId}`;
+    const { rows } = await sql`SELECT key, value, updated_at FROM user_data WHERE user_id = ${userId}`;
     const data: Record<string, string> = {};
-    for (const row of rows) data[row.key] = row.value;
-    return NextResponse.json({ data });
+    const updatedAt: Record<string, number> = {};
+    for (const row of rows) {
+      data[row.key] = row.value;
+      updatedAt[row.key] = new Date(row.updated_at).getTime();
+    }
+    return NextResponse.json({ data, updatedAt });
   } catch (e) {
     console.error('data GET failed', e);
     return NextResponse.json({ error: 'Storage unavailable' }, { status: 503 });
