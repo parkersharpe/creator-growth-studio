@@ -36,6 +36,7 @@ export default function DesignerPage() {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const [isDark, setIsDark] = useState(false);
   const [profile, setProfile] = useState<BrandProfile>(DEFAULT_PROFILE);
   const [design, setDesign] = useState<DesignSettings>(DEFAULT_DESIGN);
@@ -55,6 +56,8 @@ export default function DesignerPage() {
   const [plan, setPlan] = useState<string | null>(null);
   const modalBoxRef = useRef<HTMLDivElement>(null);
   const [modalScale, setModalScale] = useState(1);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingProfile, setIsDraggingProfile] = useState(false);
 
   const VIDEO_LIMIT_STARTER = 10;
 
@@ -159,6 +162,46 @@ export default function DesignerPage() {
     setDesign(next);
     localStorage.setItem('cgs_design', JSON.stringify(next));
   }
+
+  // Drag the attribution block (avatar + name + badge + handle) anywhere on the card.
+  // Position is stored as a fraction of the card so it survives format/resolution changes.
+  function startProfileDrag(e: React.PointerEvent) {
+    const cardEl = cardRef.current;
+    const blockEl = profileRef.current;
+    if (!cardEl || !blockEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const cardRect = cardEl.getBoundingClientRect();
+    const blockRect = blockEl.getBoundingClientRect();
+    const grabDX = e.clientX - blockRect.left;
+    const grabDY = e.clientY - blockRect.top;
+    const bwf = blockRect.width / cardRect.width;
+    const bhf = blockRect.height / cardRect.height;
+    setIsDraggingProfile(true);
+
+    function move(ev: PointerEvent) {
+      let fx = (ev.clientX - cardRect.left - grabDX) / cardRect.width;
+      let fy = (ev.clientY - cardRect.top - grabDY) / cardRect.height;
+      fx = Math.max(0, Math.min(1 - bwf, fx));
+      fy = Math.max(0, Math.min(1 - bhf, fy));
+      setDragPos({ x: fx, y: fy });
+    }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setIsDraggingProfile(false);
+      setDragPos(prev => {
+        if (prev) updateDesign({ profilePos: prev });
+        return prev;
+      });
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  // Effective position used for rendering (live drag wins, else saved, else default bottom)
+  const profilePos = dragPos ?? design.profilePos ?? null;
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -309,23 +352,24 @@ export default function DesignerPage() {
       const textStartY = (H - totalH) / 2 - photoSize / 2;
       lines.forEach((line, i) => ctx.fillText(line, pad, textStartY + i * lineH + fontSize));
 
-      // Profile row — avatar
-      const profileY = H - pad - photoSize;
+      // Profile row — avatar (honors dragged position; falls back to bottom-left)
+      const profileLeft = design.profilePos ? design.profilePos.x * W : pad;
+      const profileY = design.profilePos ? design.profilePos.y * H : H - pad - photoSize;
       ctx.save();
       ctx.beginPath();
       if (design.photoShape === 'circle') {
-        ctx.arc(pad + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
+        ctx.arc(profileLeft + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
       } else {
-        ctx.roundRect?.(pad, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 * scaleX : 0);
+        ctx.roundRect?.(profileLeft, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 * scaleX : 0);
       }
       ctx.clip();
-      ctx.drawImage(avatarImg, pad, profileY, photoSize, photoSize);
+      ctx.drawImage(avatarImg, profileLeft, profileY, photoSize, photoSize);
       ctx.restore();
 
       // Name
       const nameSize = Math.round(16 * scaleX);
       const handleSize = Math.round(13 * scaleX);
-      const textX = pad + photoSize + 10 * scaleX;
+      const textX = profileLeft + photoSize + 10 * scaleX;
       const nameY = profileY + photoSize * 0.35;
       ctx.fillStyle = design.textColor;
       ctx.font = `700 ${nameSize}px DM Sans, sans-serif`;
@@ -734,26 +778,39 @@ export default function DesignerPage() {
             {editableTexts[activeQuote] ?? currentQuote?.text}
           </p>
 
-          {/* Profile row */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            marginTop: format === '16:9' ? '10px' : '16px',
-            flexShrink: 0,
-            position: 'relative', zIndex: 2,
-            overflow: 'hidden',
-          }}>
+          {/* Profile row — click-hold-drag to reposition anywhere on the card */}
+          <div
+            ref={profileRef}
+            onPointerDown={startProfileDrag}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              flexShrink: 0,
+              zIndex: 3,
+              overflow: 'hidden',
+              cursor: isDraggingProfile ? 'grabbing' : 'grab',
+              touchAction: 'none',
+              borderRadius: '8px',
+              boxShadow: isDraggingProfile ? `0 0 0 2px ${design.textColor}66` : 'none',
+              transition: isDraggingProfile ? 'none' : 'box-shadow 0.15s',
+              ...(profilePos
+                ? { position: 'absolute', left: `${profilePos.x * 100}%`, top: `${profilePos.y * 100}%`, marginTop: 0, width: 'auto', maxWidth: '88%' }
+                : { position: 'relative', marginTop: format === '16:9' ? '10px' : '16px' }),
+            }}
+          >
             <img
               src={profile.avatar}
               alt={profile.name}
+              draggable={false}
               style={{
                 width: format === '16:9' ? `${Math.min(design.photoSize, 36)}px` : `${design.photoSize}px`,
                 height: format === '16:9' ? `${Math.min(design.photoSize, 36)}px` : `${design.photoSize}px`,
                 borderRadius: photoRadius,
                 objectFit: 'cover',
                 flexShrink: 0,
+                pointerEvents: 'none',
               }}
             />
-            <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ minWidth: 0, ...(profilePos ? {} : { flex: 1 }) }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '4px',
                 fontSize: format === '16:9' ? '0.78rem' : '0.9rem',
@@ -795,7 +852,7 @@ export default function DesignerPage() {
               <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Tap quote text to edit
+            Tap quote text to edit · drag your handle to move it
           </span>
         </div>
       )}
@@ -1198,6 +1255,29 @@ export default function DesignerPage() {
                 isDark={isDark}
               />
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ fontSize: '0.82rem', color: t.text2, fontWeight: 500 }}>Handle position</span>
+                <div style={{ fontSize: '0.7rem', color: t.text3, marginTop: '2px' }}>
+                  {profilePos ? 'Custom — drag on the card to adjust' : 'Default (bottom-left)'}
+                </div>
+              </div>
+              <button
+                onClick={() => { setDragPos(null); updateDesign({ profilePos: null }); }}
+                disabled={!profilePos}
+                style={{
+                  padding: '8px 14px', borderRadius: '20px',
+                  background: profilePos ? t.pill : 'transparent',
+                  border: `1px solid ${profilePos ? t.pillBrd : t.border}`,
+                  color: profilePos ? t.pillTxt : t.text3,
+                  fontSize: '0.75rem', fontWeight: 600,
+                  cursor: profilePos ? 'pointer' : 'default',
+                  fontFamily: 'inherit', flexShrink: 0,
+                }}
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </Section>
 
@@ -1343,7 +1423,12 @@ export default function DesignerPage() {
                   {editableTexts[activeQuote] ?? currentQuote?.text}
                 </p>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '16px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, zIndex: 2,
+                  ...(design.profilePos
+                    ? { position: 'absolute', left: `${design.profilePos.x * 100}%`, top: `${design.profilePos.y * 100}%`, marginTop: 0, width: 'auto', maxWidth: '88%' }
+                    : { position: 'relative', marginTop: '16px' }),
+                }}>
                   <img src={profile.avatar} alt={profile.name} style={{ width: `${design.photoSize}px`, height: `${design.photoSize}px`, borderRadius: photoRadius, objectFit: 'cover', flexShrink: 0 }} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, color: design.textColor, display: 'flex', alignItems: 'center', gap: '4px' }}>

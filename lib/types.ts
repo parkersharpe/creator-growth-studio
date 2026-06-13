@@ -35,6 +35,9 @@ export interface DesignSettings {
   verified: boolean;
   fontSize: number;
   bgMedia?: { type: 'image' | 'video'; url: string } | null;
+  // Top-left of the attribution block as a fraction (0..1) of the card.
+  // null/undefined = default bottom-left layout.
+  profilePos?: { x: number; y: number } | null;
 }
 
 export type FontKey = "Playfair Display" | "Cormorant Garamond" | "DM Serif Display" | "Syne" | "Inter";
