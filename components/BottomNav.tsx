@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 const TABS = [
   {
     id: 'generate',
@@ -61,11 +63,11 @@ const TABS = [
 
 interface BottomNavProps {
   active: string;
-  onNavigate: (href: string, id: string) => void;
+  onNavigate?: (href: string, id: string) => void;
   isDark: boolean;
 }
 
-export default function BottomNav({ active, onNavigate, isDark }: BottomNavProps) {
+export default function BottomNav({ active, isDark }: BottomNavProps) {
   const navBg = isDark ? 'rgba(5,5,7,0.92)' : 'rgba(255,255,255,0.92)';
   const border = isDark ? '#1f1f22' : '#efefef';
   const colorActive = isDark ? '#ffffff' : '#0a0a0a';
@@ -84,12 +86,14 @@ export default function BottomNav({ active, onNavigate, isDark }: BottomNavProps
         const isActive = active === tab.id;
         const color = isActive ? colorActive : colorInactive;
         return (
-          <button
+          <Link
             key={tab.id}
-            onClick={() => onNavigate(tab.href, tab.id)}
+            href={tab.href}
+            prefetch
             style={{
               flex: 1, paddingTop: '10px', paddingBottom: '6px', background: 'none', border: 'none',
               cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+              textDecoration: 'none',
               opacity: isActive ? 1 : 0.7,
               transition: 'opacity 0.15s',
             }}
@@ -100,7 +104,7 @@ export default function BottomNav({ active, onNavigate, isDark }: BottomNavProps
               color,
               fontWeight: isActive ? 700 : 500,
             }}>{tab.label}</span>
-          </button>
+          </Link>
         );
       })}
     </div>
