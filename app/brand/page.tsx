@@ -83,8 +83,41 @@ export default function BrandPage() {
     const next = { ...profile, ...patch };
     setProfile(next);
     const json = JSON.stringify(next);
-    localStorage.setItem('cgs_profile', json);
-    if (user) localStorage.setItem(`cgs_profile_${user.id}`, json);
+    try {
+      localStorage.setItem('cgs_profile', json);
+      if (user) localStorage.setItem(`cgs_profile_${user.id}`, json);
+    } catch {
+      alert('Could not save — your photo may be too large. Try a different image.');
+    }
+  }
+
+  // Resize + compress an uploaded photo to a small square so it fits the storage
+  // limits (raw phone photos are several MB and silently fail to sync).
+  async function processAvatarFile(file: File): Promise<string> {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('read failed'));
+      reader.readAsDataURL(file);
+    });
+    const img = new window.Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.src = dataUrl;
+    });
+    const SIZE = 400;
+    const canvas = document.createElement('canvas');
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingQuality = 'high';
+    // Cover-crop to a centered square
+    const scale = Math.max(SIZE / img.width, SIZE / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, (SIZE - dw) / 2, (SIZE - dh) / 2, dw, dh);
+    return canvas.toDataURL('image/jpeg', 0.85);
   }
 
   function selectVoice(v: VoiceKey) {
@@ -235,15 +268,16 @@ export default function BrandPage() {
               type="file"
               accept="image/*"
               style={{ display: 'none' }}
-              onChange={e => {
+              onChange={async e => {
                 const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  updateProfile({ avatar: ev.target?.result as string });
-                };
-                reader.readAsDataURL(file);
                 e.target.value = '';
+                if (!file) return;
+                try {
+                  const avatar = await processAvatarFile(file);
+                  updateProfile({ avatar });
+                } catch {
+                  alert('Could not process that image. Try a different photo.');
+                }
               }}
             />
           </div>
