@@ -58,6 +58,7 @@ export default function DesignerPage() {
   const [modalScale, setModalScale] = useState(1);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingProfile, setIsDraggingProfile] = useState(false);
+  const [snap, setSnap] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
 
   const VIDEO_LIMIT_STARTER = 10;
 
@@ -180,17 +181,28 @@ export default function DesignerPage() {
     const bhf = blockRect.height / cardRect.height;
     setIsDraggingProfile(true);
 
+    // Snap the block's center to thirds + center lines for clean alignment
+    const targets = [1 / 3, 1 / 2, 2 / 3];
+    const SNAP = 0.02;
     function move(ev: PointerEvent) {
       let fx = (ev.clientX - cardRect.left - grabDX) / cardRect.width;
       let fy = (ev.clientY - cardRect.top - grabDY) / cardRect.height;
+      let snapX: number | null = null;
+      let snapY: number | null = null;
+      const cx = fx + bwf / 2;
+      const cy = fy + bhf / 2;
+      for (const tcx of targets) if (Math.abs(cx - tcx) < SNAP) { fx = tcx - bwf / 2; snapX = tcx; break; }
+      for (const tcy of targets) if (Math.abs(cy - tcy) < SNAP) { fy = tcy - bhf / 2; snapY = tcy; break; }
       fx = Math.max(0, Math.min(1 - bwf, fx));
       fy = Math.max(0, Math.min(1 - bhf, fy));
       setDragPos({ x: fx, y: fy });
+      setSnap({ x: snapX, y: snapY });
     }
     function up() {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       setIsDraggingProfile(false);
+      setSnap({ x: null, y: null });
       setDragPos(prev => {
         if (prev) updateDesign({ profilePos: prev });
         return prev;
@@ -738,6 +750,34 @@ export default function DesignerPage() {
               background: 'rgba(0,0,0,0.38)',
               zIndex: 1,
             }} />
+          )}
+
+          {/* Alignment grid — only visible while dragging the handle */}
+          {isDraggingProfile && (
+            <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}>
+              {[1 / 3, 1 / 2, 2 / 3].map(f => {
+                const active = snap.x !== null && Math.abs(snap.x - f) < 0.001;
+                return (
+                  <div key={`v${f}`} style={{
+                    position: 'absolute', top: 0, bottom: 0, left: `${f * 100}%`,
+                    width: active ? '2px' : '1px', marginLeft: active ? '-1px' : '-0.5px',
+                    background: active ? '#2ed3ff' : 'rgba(140,140,140,0.5)',
+                    boxShadow: active ? '0 0 6px #2ed3ff' : 'none',
+                  }} />
+                );
+              })}
+              {[1 / 3, 1 / 2, 2 / 3].map(f => {
+                const active = snap.y !== null && Math.abs(snap.y - f) < 0.001;
+                return (
+                  <div key={`h${f}`} style={{
+                    position: 'absolute', left: 0, right: 0, top: `${f * 100}%`,
+                    height: active ? '2px' : '1px', marginTop: active ? '-1px' : '-0.5px',
+                    background: active ? '#2ed3ff' : 'rgba(140,140,140,0.5)',
+                    boxShadow: active ? '0 0 6px #2ed3ff' : 'none',
+                  }} />
+                );
+              })}
+            </div>
           )}
 
           {/* Quote text — tap to edit */}
