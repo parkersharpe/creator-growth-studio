@@ -19,6 +19,11 @@ const DEFAULT_PROFILE: BrandProfile = {
   verified: true,
 };
 
+// Plays the "welcome back" splash once per full app load. A module-level flag
+// persists across in-app tab navigation but resets on a real page reload / cold
+// open / cache clear — exactly when we want to greet the user.
+let welcomeShownThisLoad = false;
+
 export default function HomePage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
@@ -40,6 +45,9 @@ export default function HomePage() {
   const [nicheSheet, setNicheSheet] = useState(false);
   const [customVoice, setCustomVoice] = useState('');
   const [customNiche, setCustomNiche] = useState('');
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeExiting, setWelcomeExiting] = useState(false);
+  const [welcomeName, setWelcomeName] = useState('');
 
   const t = isDark ? DARK : LIGHT;
 
@@ -88,6 +96,15 @@ export default function HomePage() {
       // Keep the device-wide keys in sync with the signed-in user
       localStorage.setItem('cgs_profile', savedProfile);
       try { setProfile(JSON.parse(savedProfile)); } catch {}
+
+      // Greet returning users once per cold open, then dissolve into the page
+      if (!welcomeShownThisLoad) {
+        welcomeShownThisLoad = true;
+        try { setWelcomeName(((JSON.parse(savedProfile).name as string) || '').split(' ')[0] || ''); } catch {}
+        setShowWelcome(true);
+        setTimeout(() => setWelcomeExiting(true), 1400);
+        setTimeout(() => { setShowWelcome(false); setWelcomeExiting(false); }, 1850);
+      }
 
       const savedVoice = localStorage.getItem(voiceKey);
       if (savedVoice) {
@@ -225,6 +242,45 @@ export default function HomePage() {
 
   return (
     <div style={{ background: t.bg, minHeight: '100vh', paddingBottom: barVisible ? '200px' : '96px', transition: 'padding-bottom 0.3s ease, background 0.2s' }}>
+
+      {/* Welcome-back splash — once per cold open, then dissolves into the page */}
+      {showWelcome && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: t.bg,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          opacity: welcomeExiting ? 0 : 1,
+          transition: 'opacity 0.45s ease',
+          pointerEvents: 'none',
+        }}>
+          <style>{`
+            @keyframes welcomeStar { 0% { opacity: 0; transform: scale(0.4) rotate(-25deg); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1) rotate(0deg); } }
+            @keyframes welcomeRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+          `}</style>
+          <div style={{
+            marginBottom: '20px',
+            animation: 'welcomeStar 0.7s cubic-bezier(0.34,1.56,0.64,1) both',
+          }}>
+            <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
+              <path d="M32 6 C32 6 30 19 30 27 C30 27 19 29 6 32 C6 32 19 35 30 37 C30 37 32 50 32 58 C32 58 34 50 34 37 C34 37 45 35 58 32 C58 32 45 29 34 27 C34 27 32 19 32 6 Z" fill={t.text}/>
+            </svg>
+          </div>
+          <div style={{
+            fontSize: '0.78rem', color: t.text3, fontWeight: 700,
+            letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '8px',
+            animation: 'welcomeRise 0.6s 0.15s ease both',
+          }}>
+            Welcome back
+          </div>
+          <div style={{
+            fontSize: '2.4rem', fontWeight: 900, color: t.text, letterSpacing: '-0.04em', lineHeight: 1.1,
+            animation: 'welcomeRise 0.6s 0.28s ease both',
+          }}>
+            {welcomeName || 'Creator'}
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
