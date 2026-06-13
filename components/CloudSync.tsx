@@ -19,6 +19,39 @@ const SYNC_KEYS = [
 // Profile/voice are also mirrored to user-scoped keys for the auth guards
 const USER_SCOPED = ['cgs_profile', 'cgs_voice'];
 
+// Append-only collections — never let a stale cloud copy delete items the user just added.
+// On load these are merged (union by id) instead of clobbered.
+const COLLECTION_KEYS = ['cgs_saved', 'cgs_kits'];
+
+function mergeCollections(localRaw: string | null, cloudRaw: string | null): string {
+  try {
+    const local = localRaw ? JSON.parse(localRaw) : [];
+    const cloud = cloudRaw ? JSON.parse(cloudRaw) : [];
+    if (!Array.isArray(local) || !Array.isArray(cloud)) return (localRaw || cloudRaw) ?? '[]';
+    const byId = new Map<string, unknown>();
+    // Cloud first, then local — local wins on matching id (reflects latest edits)
+    for (const item of cloud) byId.set(idOf(item), item);
+    for (const item of local) byId.set(idOf(item), item);
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => (savedAt(b) - savedAt(a)));
+    return JSON.stringify(merged);
+  } catch {
+    return (localRaw || cloudRaw) ?? '[]';
+  }
+}
+
+function idOf(item: unknown): string {
+  if (item && typeof item === 'object' && 'id' in item) return String((item as { id: unknown }).id);
+  return JSON.stringify(item);
+}
+function savedAt(item: unknown): number {
+  if (item && typeof item === 'object' && 'savedAt' in item) {
+    const v = (item as { savedAt: unknown }).savedAt;
+    return typeof v === 'number' ? v : 0;
+  }
+  return 0;
+}
+
 export default function CloudSync({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
   const [hydrated, setHydrated] = useState(false);
@@ -26,6 +59,36 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
   const pending = useRef<Record<string, string>>({});
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interceptorInstalled = useRef(false);
+
+  // Send any queued changes to the cloud now. keepalive lets the request survive
+  // a page being backgrounded or closed (the common "save then leave" case on mobile).
+  function flushNow() {
+    if (flushTimer.current) { clearTimeout(flushTimer.current); flushTimer.current = null; }
+    const entries = pending.current;
+    if (Object.keys(entries).length === 0) return;
+    pending.current = {};
+    try {
+      fetch('/api/data', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {}
+  }
+
+  // Flush whenever the tab is hidden or the page is being torn down, so timers
+  // frozen by the OS can't swallow a pending save.
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') flushNow(); };
+    const onPageHide = () => flushNow();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -44,16 +107,9 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
     function queueUpload(key: string, value: string) {
       pending.current[key] = value;
       if (flushTimer.current) clearTimeout(flushTimer.current);
-      flushTimer.current = setTimeout(() => {
-        const entries = pending.current;
-        pending.current = {};
-        fetch('/api/data', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entries }),
-          keepalive: true,
-        }).catch(() => {});
-      }, 1200);
+      // Short coalescing window — long enough to batch slider drags, short enough
+      // that a quick save→reload still lands. Backgrounding is covered by flushNow().
+      flushTimer.current = setTimeout(flushNow, 500);
     }
 
     function installInterceptor() {
@@ -72,29 +128,39 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
         const res = await fetch('/api/data');
         if (res.ok) {
           const { data } = await res.json() as { data: Record<string, string> };
-          // Only treat local data as this user's if their scoped profile exists here
           const ownsDevice = !!localStorage.getItem(`cgs_profile_${uid}`);
-          const toMigrate: Record<string, string> = {};
+          const toUpload: Record<string, string> = {};
 
           for (const key of SYNC_KEYS) {
             const serverVal = data[key];
+
+            if (COLLECTION_KEYS.includes(key)) {
+              // Union local + cloud so a save is never lost, even if it never uploaded
+              const localVal = localStorage.getItem(key);
+              if (serverVal === undefined && !localVal) continue;
+              const merged = mergeCollections(localVal, serverVal ?? null);
+              localStorage.setItem(key, merged);
+              if (merged !== serverVal) toUpload[key] = merged; // converge the cloud
+              continue;
+            }
+
             if (serverVal !== undefined) {
-              // Cloud is the source of truth on load
+              // Cloud is the source of truth for current-state keys
               localStorage.setItem(key, serverVal);
               if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, serverVal);
             } else if (ownsDevice) {
               const localVal = USER_SCOPED.includes(key)
                 ? localStorage.getItem(`${key}_${uid}`) || localStorage.getItem(key)
                 : localStorage.getItem(key);
-              if (localVal) toMigrate[key] = localVal;
+              if (localVal) toUpload[key] = localVal;
             }
           }
 
-          if (Object.keys(toMigrate).length > 0) {
+          if (Object.keys(toUpload).length > 0) {
             fetch('/api/data', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ entries: toMigrate }),
+              body: JSON.stringify({ entries: toUpload }),
             }).catch(() => {});
           }
         }
