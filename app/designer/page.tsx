@@ -329,25 +329,25 @@ export default function DesignerPage() {
     const fontSize = (design.fontSize ?? 24) * scaleX;
     const photoSize = design.photoSize * scaleX;
 
-    // Composes one full frame onto the canvas — used to prime the first frame and every recorded frame
-    function composeFrame() {
-      // Video frame — cover-crop to match the preview (no stretching)
-      const vw = video.videoWidth || W;
-      const vh = video.videoHeight || H;
-      const coverScale = Math.max(W / vw, H / vh);
-      const dw = vw * coverScale;
-      const dh = vh * coverScale;
-      ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
-
-      // Dark overlay
-      ctx.fillStyle = 'rgba(0,0,0,0.38)';
-      ctx.fillRect(0, 0, W, H);
+    // Build the STATIC overlay ONCE onto its own canvas (darken + text + avatar + badge +
+    // handle). Re-drawing all of this every frame at full resolution starved the recorder of
+    // frames and made exported video stutter in the camera roll. Now each frame only draws the
+    // video + this cached overlay — cheap enough to hold a steady frame rate.
+    const overlay = document.createElement('canvas');
+    overlay.width = W;
+    overlay.height = H;
+    const octx = overlay.getContext('2d')!;
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    {
+      octx.fillStyle = 'rgba(0,0,0,0.38)';
+      octx.fillRect(0, 0, W, H);
 
       // Quote text — word wrap
       const quoteText = editableTexts[activeQuote] ?? currentQuote?.text ?? '';
-      ctx.fillStyle = design.textColor;
-      ctx.font = `600 ${fontSize}px '${design.font}', serif`;
-      ctx.textBaseline = 'alphabetic';
+      octx.fillStyle = design.textColor;
+      octx.font = `600 ${fontSize}px '${design.font}', serif`;
+      octx.textBaseline = 'alphabetic';
       const maxW = W - pad * 2;
       const lineH = fontSize * 1.35;
       const words = quoteText.split(' ');
@@ -355,67 +355,77 @@ export default function DesignerPage() {
       let cur = '';
       for (const w of words) {
         const test = cur ? `${cur} ${w}` : w;
-        if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+        if (octx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
         else cur = test;
       }
       if (cur) lines.push(cur);
-
       const totalH = lines.length * lineH;
       const textStartY = (H - totalH) / 2 - photoSize / 2;
-      lines.forEach((line, i) => ctx.fillText(line, pad, textStartY + i * lineH + fontSize));
+      lines.forEach((line, i) => octx.fillText(line, pad, textStartY + i * lineH + fontSize));
 
-      // Profile row — avatar (honors dragged position; falls back to bottom-left)
+      // Profile avatar (honors dragged position; falls back to bottom-left)
       const profileLeft = design.profilePos ? design.profilePos.x * W : pad;
       const profileY = design.profilePos ? design.profilePos.y * H : H - pad - photoSize;
-      ctx.save();
-      ctx.beginPath();
+      octx.save();
+      octx.beginPath();
       if (design.photoShape === 'circle') {
-        ctx.arc(profileLeft + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
+        octx.arc(profileLeft + photoSize / 2, profileY + photoSize / 2, photoSize / 2, 0, Math.PI * 2);
       } else {
-        ctx.roundRect?.(profileLeft, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 * scaleX : 0);
+        octx.roundRect?.(profileLeft, profileY, photoSize, photoSize, design.photoShape === 'rounded' ? 12 * scaleX : 0);
       }
-      ctx.clip();
-      ctx.drawImage(avatarImg, profileLeft, profileY, photoSize, photoSize);
-      ctx.restore();
+      octx.clip();
+      octx.drawImage(avatarImg, profileLeft, profileY, photoSize, photoSize);
+      octx.restore();
 
       // Name
       const nameSize = Math.round(16 * scaleX);
       const handleSize = Math.round(13 * scaleX);
       const textX = profileLeft + photoSize + 10 * scaleX;
       const nameY = profileY + photoSize * 0.35;
-      ctx.fillStyle = design.textColor;
-      ctx.font = `700 ${nameSize}px DM Sans, sans-serif`;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(profile.name, textX, nameY);
+      octx.fillStyle = design.textColor;
+      octx.font = `700 ${nameSize}px DM Sans, sans-serif`;
+      octx.textBaseline = 'middle';
+      octx.fillText(profile.name, textX, nameY);
 
-      // Verified badge — same star-burst path as the on-screen badge
+      // Verified badge
       if (design.verified) {
-        const nameW = ctx.measureText(profile.name).width;
+        const nameW = octx.measureText(profile.name).width;
         const badge = nameSize * 1.05;
-        ctx.save();
-        ctx.translate(textX + nameW + 6 * scaleX, nameY - badge / 2);
-        ctx.scale(badge / 24, badge / 24);
+        octx.save();
+        octx.translate(textX + nameW + 6 * scaleX, nameY - badge / 2);
+        octx.scale(badge / 24, badge / 24);
         const star = new Path2D('M12 2L13.8 5.4L17.6 4.2L17.2 8.1L21 9.6L18.6 12.8L21 16L17.2 17.5L17.6 21.4L13.8 20.2L12 23.6L10.2 20.2L6.4 21.4L6.8 17.5L3 16L5.4 12.8L3 9.6L6.8 8.1L6.4 4.2L10.2 5.4L12 2Z');
-        ctx.fillStyle = '#1877F2';
-        ctx.fill(star);
+        octx.fillStyle = '#1877F2';
+        octx.fill(star);
         const check = new Path2D('M8.5 12.5L10.5 14.5L15.5 9.5');
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.8;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke(check);
-        ctx.restore();
+        octx.strokeStyle = '#ffffff';
+        octx.lineWidth = 1.8;
+        octx.lineCap = 'round';
+        octx.lineJoin = 'round';
+        octx.stroke(check);
+        octx.restore();
       }
 
       // Handle
-      ctx.fillStyle = 'rgba(255,255,255,0.65)';
-      ctx.font = `500 ${handleSize}px DM Sans, sans-serif`;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`@${profile.handle}`, textX, profileY + photoSize * 0.72);
+      octx.fillStyle = 'rgba(255,255,255,0.65)';
+      octx.font = `500 ${handleSize}px DM Sans, sans-serif`;
+      octx.textBaseline = 'middle';
+      octx.fillText(`@${profile.handle}`, textX, profileY + photoSize * 0.72);
     }
 
-    // Prime the canvas with a real frame BEFORE recording starts (kills the black intro)
-    composeFrame();
+    // Each recorded frame: just the video (cover-cropped) + the cached overlay. Cheap & steady.
+    function drawComposed() {
+      const vw = video.videoWidth || W;
+      const vh = video.videoHeight || H;
+      const coverScale = Math.max(W / vw, H / vh);
+      const dw = vw * coverScale;
+      const dh = vh * coverScale;
+      ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.drawImage(overlay, 0, 0);
+    }
+
+    // Prime the canvas before recording starts (kills the black intro)
+    drawComposed();
 
     const stream = offscreen.captureStream(30);
     const bitrate = Math.min(24_000_000, Math.round(W * H * 30 * 0.18)); // resolution-aware, high quality
@@ -445,24 +455,37 @@ export default function DesignerPage() {
 
     recorder.start(100);
     const startTime = performance.now();
+    let stopped = false;
+    const v = video as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number };
+    const useRVFC = typeof v.requestVideoFrameCallback === 'function';
 
-    function drawFrame() {
-      const elapsed = performance.now() - startTime;
-      if (elapsed >= windowDur * 1000) {
-        recorder.stop();
-        video.pause();
-        video.loop = false;
-        return;
-      }
+    function finish() {
+      if (stopped) return;
+      stopped = true;
+      try { recorder.stop(); } catch {}
+      video.pause();
+      video.loop = false;
+    }
+
+    // Draw in lockstep with the source video's real frames (rVFC) for evenly-timed output,
+    // which is what keeps playback smooth in the camera roll. Falls back to rAF.
+    function tick() {
+      if (stopped) return;
+      if (performance.now() - startTime >= windowDur * 1000) { finish(); return; }
       // Keep the playhead inside the selected window so trimmed clips loop seamlessly
       if (video.currentTime >= windowStart + windowDur || video.currentTime < windowStart - 0.05) {
         video.currentTime = windowStart;
       }
-      composeFrame();
-      requestAnimationFrame(drawFrame);
+      drawComposed();
+      if (useRVFC) v.requestVideoFrameCallback!(tick);
+      else requestAnimationFrame(tick);
     }
 
-    requestAnimationFrame(drawFrame);
+    if (useRVFC) v.requestVideoFrameCallback!(tick);
+    else requestAnimationFrame(tick);
+
+    // Safety net: if the video stalls and rVFC stops firing, still stop on time
+    setTimeout(finish, windowDur * 1000 + 600);
   }
 
   function removeBgMedia() {
