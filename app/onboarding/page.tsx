@@ -4,10 +4,19 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { NICHES, VOICES } from '@/lib/theme';
-import { VoiceKey } from '@/lib/types';
+import { VoiceKey, AccountType } from '@/lib/types';
 
-const STEPS = ['welcome', 'handle', 'niche', 'voice', 'plan'] as const;
+const STEPS = ['welcome', 'type', 'handle', 'niche', 'goal', 'voice', 'plan'] as const;
 type Step = typeof STEPS[number];
+
+const PERSON_GOALS = [
+  'Grow my following', 'Build authority in my niche', 'Get more engagement',
+  'Sell my product or service', 'Tell my story', 'Educate my audience',
+];
+const BUSINESS_GOALS = [
+  'Get more local customers', 'Book more jobs & appointments', 'Build trust & reputation',
+  'Promote an offer or sale', 'Show off my work', 'Stay top-of-mind in my area',
+];
 
 const PLANS = [
   {
@@ -36,8 +45,13 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>('welcome');
   const [animating, setAnimating] = useState(false);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [handle, setHandle] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [location, setLocation] = useState('');
+  const [services, setServices] = useState('');
   const [niches, setNiches] = useState<string[]>([]);
+  const [goal, setGoal] = useState('');
   const [voice, setVoice] = useState<VoiceKey>('parker');
   const [selectedPlan, setSelectedPlan] = useState('unlimited');
   const [checkingOut, setCheckingOut] = useState(false);
@@ -46,6 +60,16 @@ export default function OnboardingPage() {
 
   const stepIndex = STEPS.indexOf(step);
   const firstName = user?.firstName || user?.fullName?.split(' ')[0] || 'Creator';
+  const isBusiness = accountType === 'business';
+
+  // Numbered-step label (welcome isn't numbered)
+  const numberedSteps = STEPS.filter(s => s !== 'welcome');
+  const stepLabel = step === 'welcome' ? '' : `Step ${numberedSteps.indexOf(step) + 1} of ${numberedSteps.length}`;
+
+  // Per-step "can continue" gating
+  const identityValid = isBusiness
+    ? businessName.trim().length > 0 && location.trim().length > 0 && services.trim().length > 0
+    : handle.trim().length > 0;
 
   // Onboarding requires a signed-in account — payment is tied to the user.
   // Users who already finished onboarding (profile exists) go straight to the app.
@@ -58,10 +82,10 @@ export default function OnboardingPage() {
   }, [isLoaded, user, router]);
 
   useEffect(() => {
-    if (step === 'handle') {
+    if (step === 'handle' && !isBusiness) {
       setTimeout(() => inputRef.current?.focus(), 400);
     }
-  }, [step]);
+  }, [step, isBusiness]);
 
   function goNext() {
     if (animating) return;
@@ -90,13 +114,18 @@ export default function OnboardingPage() {
 
   async function handleCheckout() {
     const profile = {
-      name: user?.fullName || firstName,
+      name: isBusiness ? (businessName || user?.fullName || firstName) : (user?.fullName || firstName),
       handle: handle.replace('@', '') || user?.username || '',
       niche: niches[0] || '',
       niches,
       website: '',
       avatar: user?.imageUrl || '/avatar.jpg',
       verified: true,
+      accountType: accountType || 'person',
+      businessName: isBusiness ? businessName : undefined,
+      location: isBusiness ? location : undefined,
+      services: isBusiness ? services : undefined,
+      goal: goal || undefined,
     };
     const uid = user?.id || 'guest';
     // Save as PENDING — only finalized after Stripe confirms payment
@@ -242,47 +271,93 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* HANDLE */}
+        {/* ACCOUNT TYPE */}
+        {step === 'type' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+              Who's this<br />studio for?
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
+              We'll tailor how the AI writes for you.
+            </p>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {([
+                { id: 'person', emoji: '🙋', title: 'A personal brand', desc: 'Creator, coach, influencer, or individual building an audience.' },
+                { id: 'business', emoji: '🏢', title: 'A business', desc: 'Local or online business marketing a product or service.' },
+              ] as const).map((opt, i) => {
+                const sel = accountType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    className="plan-card"
+                    onClick={() => setAccountType(opt.id)}
+                    style={{
+                      padding: '20px', borderRadius: '18px', cursor: 'pointer', textAlign: 'left',
+                      background: sel ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                      border: `1.5px solid ${sel ? '#000000' : 'rgba(0,0,0,0.1)'}`,
+                      boxShadow: sel ? '0 8px 30px rgba(0,0,0,0.08)' : 'none',
+                      transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                      fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '14px',
+                      animation: `fadeUp 0.3s ${i * 0.06}s ease both`,
+                    }}
+                  >
+                    <span style={{ fontSize: '1.8rem' }}>{opt.emoji}</span>
+                    <span>
+                      <span style={{ display: 'block', fontSize: '1.05rem', fontWeight: 800, color: '#000', marginBottom: '3px' }}>{opt.title}</span>
+                      <span style={{ display: 'block', fontSize: '0.8rem', color: 'rgba(0,0,0,0.45)', lineHeight: 1.4 }}>{opt.desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={goNext} disabled={!accountType} style={ctaStyle(!accountType)}>
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* HANDLE / BUSINESS IDENTITY */}
         {step === 'handle' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 1 of 4</p>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
               <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
-                What's your<br />social handle?
+                {isBusiness ? <>Tell us about<br />your business.</> : <>What's your<br />social handle?</>}
               </h1>
-              <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '36px', lineHeight: 1.5 }}>
-                We'll put it on every quote card you create.
+              <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
+                {isBusiness ? 'This is how the AI markets you — be specific.' : "We'll put it on every quote card you create."}
               </p>
 
+              {isBusiness && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+                  <OnboardField label="Business name" value={businessName} onChange={setBusinessName} placeholder="e.g. Queen City Pressure Washing" />
+                  <OnboardField label="Location (city, state)" value={location} onChange={setLocation} placeholder="e.g. Charlotte, NC" />
+                  <OnboardField label="What you do" value={services} onChange={setServices} placeholder="e.g. residential & commercial pressure washing" />
+                </div>
+              )}
+
+              {/* Handle (required for people, optional for businesses) */}
               <div style={{
-                position: 'relative',
-                borderRadius: '16px',
-                background: '#ffffff',
+                position: 'relative', borderRadius: '16px', background: '#ffffff',
                 border: `1.5px solid ${inputFocused ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.12)'}`,
                 transition: 'border-color 0.2s, box-shadow 0.2s',
-                boxShadow: inputFocused ? '0 0 0 4px rgba(0,0,0,0.06)' : 'none',
-                overflow: 'hidden',
+                boxShadow: inputFocused ? '0 0 0 4px rgba(0,0,0,0.06)' : 'none', overflow: 'hidden',
               }}>
-                <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.2)', fontSize: '1.1rem', fontWeight: 700, transition: 'color 0.2s', pointerEvents: 'none' }}>@</span>
+                <span style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', color: inputFocused ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.2)', fontSize: '1.1rem', fontWeight: 700, pointerEvents: 'none' }}>@</span>
                 <input
                   ref={inputRef}
                   value={handle}
                   onChange={e => setHandle(e.target.value.replace('@', '').replace(/\s/g, ''))}
                   onFocus={() => setInputFocused(true)}
                   onBlur={() => setInputFocused(false)}
-                  placeholder="yourhandle"
-                  onKeyDown={e => e.key === 'Enter' && handle.trim() && goNext()}
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    background: 'transparent',
-                    border: 'none', outline: 'none',
-                    padding: '18px 18px 18px 38px',
-                    fontSize: '1.1rem', fontWeight: 600, color: '#000',
-                    fontFamily: 'inherit',
-                  }}
+                  placeholder={isBusiness ? 'yourbusiness (optional)' : 'yourhandle'}
+                  onKeyDown={e => e.key === 'Enter' && identityValid && goNext()}
+                  style={{ width: '100%', boxSizing: 'border-box', background: 'transparent', border: 'none', outline: 'none', padding: '18px 18px 18px 38px', fontSize: '1.1rem', fontWeight: 600, color: '#000', fontFamily: 'inherit' }}
                 />
               </div>
-
               {handle && (
                 <p style={{ fontSize: '0.78rem', color: 'rgba(0,0,0,0.25)', marginTop: '10px' }}>
                   Will appear as <span style={{ color: 'rgba(0,0,0,0.55)', fontWeight: 600 }}>@{handle}</span>
@@ -290,7 +365,7 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            <button onClick={goNext} disabled={!handle.trim()} style={ctaStyle(!handle.trim())}>
+            <button onClick={goNext} disabled={!identityValid} style={ctaStyle(!identityValid)}>
               Continue →
             </button>
           </div>
@@ -299,12 +374,12 @@ export default function OnboardingPage() {
         {/* NICHE */}
         {step === 'niche' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 2 of 4</p>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
-              Pick up to 3<br />niches.
+              {isBusiness ? <>Pick your<br />industry.</> : <>Pick up to 3<br />niches.</>}
             </h1>
             <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
-              AI writes content tailored to your audience. {niches.length}/3 selected.
+              {isBusiness ? 'Choose what fits your business best. ' : 'AI writes content tailored to your audience. '}{niches.length}/3 selected.
             </p>
 
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
@@ -342,10 +417,55 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* GOAL */}
+        {step === 'goal' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
+              What should your<br />content do?
+            </h1>
+            <p style={{ fontSize: '0.9rem', color: 'rgba(0,0,0,0.35)', marginBottom: '28px', lineHeight: 1.5 }}>
+              We'll aim every post at this goal.
+            </p>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              {(isBusiness ? BUSINESS_GOALS : PERSON_GOALS).map((g, i) => {
+                const sel = goal === g;
+                return (
+                  <button
+                    key={g}
+                    className="voice-card"
+                    onClick={() => setGoal(g)}
+                    style={{
+                      padding: '16px 18px', borderRadius: '16px', cursor: 'pointer', textAlign: 'left',
+                      background: sel ? '#000000' : 'rgba(255,255,255,0.6)',
+                      border: `1.5px solid ${sel ? '#000000' : 'rgba(0,0,0,0.1)'}`,
+                      color: sel ? '#ffffff' : 'rgba(0,0,0,0.7)',
+                      fontSize: '0.95rem', fontWeight: sel ? 700 : 500, fontFamily: 'inherit',
+                      transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      animation: `fadeUp 0.3s ${i * 0.04}s ease both`, flexShrink: 0,
+                    }}
+                  >
+                    {g}
+                    {sel && (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button onClick={goNext} disabled={!goal} style={ctaStyle(!goal)}>
+              Continue →
+            </button>
+          </div>
+        )}
+
         {/* VOICE */}
         {step === 'voice' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 3 of 4</p>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '10px' }}>
               Pick your<br />content voice.
             </h1>
@@ -402,7 +522,7 @@ export default function OnboardingPage() {
         {/* PLAN */}
         {step === 'plan' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>Step 4 of 4</p>
+            <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'rgba(0,0,0,0.3)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>{stepLabel}</p>
             <h1 style={{ fontSize: '2.2rem', fontWeight: 900, color: '#000', letterSpacing: '-0.04em', lineHeight: 1.15, marginBottom: '8px' }}>
               Choose your<br />plan.
             </h1>
@@ -516,4 +636,25 @@ function ctaStyle(disabled: boolean): React.CSSProperties {
     transition: 'all 0.15s cubic-bezier(0.34,1.56,0.64,1)',
     flexShrink: 0, fontFamily: 'inherit',
   };
+}
+
+function OnboardField({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder: string;
+}) {
+  return (
+    <label style={{ display: 'block' }}>
+      <span style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: 'rgba(0,0,0,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px', paddingLeft: '2px' }}>{label}</span>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: '100%', boxSizing: 'border-box', background: '#ffffff',
+          border: '1.5px solid rgba(0,0,0,0.12)', borderRadius: '14px',
+          padding: '14px 16px', fontSize: '1rem', fontWeight: 500, color: '#000',
+          fontFamily: 'inherit', outline: 'none',
+        }}
+      />
+    </label>
+  );
 }

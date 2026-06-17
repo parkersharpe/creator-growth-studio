@@ -6,6 +6,8 @@ export interface Quote {
   category: string;
 }
 
+export type AccountType = "person" | "business";
+
 export interface BrandProfile {
   name: string;
   handle: string;
@@ -14,11 +16,36 @@ export interface BrandProfile {
   website: string;
   avatar: string;
   verified: boolean;
+  // Intake context — powers smarter, on-brand generation
+  accountType?: AccountType;   // defaults to 'person' when absent
+  businessName?: string;       // business display name (business accounts)
+  location?: string;           // e.g. "Charlotte, NC" — drives local relevance
+  services?: string;           // what they sell / do
+  goal?: string;               // what the content should accomplish
 }
 
 // Niches for AI prompts: joined list when multiple are set
 export function nicheLabel(p: BrandProfile): string {
   return p.niches && p.niches.length > 0 ? p.niches.join(', ') : p.niche;
+}
+
+// Compact brand context passed to the AI routes so prompts can be tailored
+export interface BrandContext {
+  accountType?: AccountType;
+  businessName?: string;
+  location?: string;
+  services?: string;
+  goal?: string;
+}
+
+export function brandContextFrom(p: BrandProfile): BrandContext {
+  return {
+    accountType: p.accountType || "person",
+    businessName: p.businessName,
+    location: p.location,
+    services: p.services,
+    goal: p.goal,
+  };
 }
 
 export interface DesignSettings {

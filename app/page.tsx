@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { DARK, LIGHT, VOICES, NICHES, SEED_QUOTES } from '@/lib/theme';
-import { Quote, BrandProfile, VoiceKey, nicheLabel } from '@/lib/types';
+import { Quote, BrandProfile, VoiceKey, nicheLabel, brandContextFrom } from '@/lib/types';
 import Sheet from '@/components/Sheet';
 import QuoteCard from '@/components/QuoteCard';
 import BottomNav from '@/components/BottomNav';
@@ -146,6 +146,7 @@ export default function HomePage() {
           name: profile.name,
           handle: profile.handle,
           customVoiceDesc: customVoice || undefined,
+          brand: brandContextFrom(profile),
         }),
       });
       const data = await res.json();
@@ -174,6 +175,7 @@ export default function HomePage() {
           niche: customNiche || nicheLabel(profile),
           name: profile.name,
           customVoiceDesc: customVoice || undefined,
+          brand: brandContextFrom(profile),
         }),
       });
       const data = await res.json();

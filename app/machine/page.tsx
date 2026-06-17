@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DARK, LIGHT, VOICES, NICHES } from '@/lib/theme';
-import { BrandProfile, MachineType, VoiceKey, nicheLabel } from '@/lib/types';
+import { BrandProfile, MachineType, VoiceKey, nicheLabel, brandContextFrom } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import LoadingSparkle from '@/components/LoadingSparkle';
 import AuthGuard from '@/components/AuthGuard';
@@ -65,7 +65,7 @@ export default function MachinePage() {
       const res = await fetch('/api/machine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, voice, niche: nicheLabel(profile), name: profile.name, handle: profile.handle }),
+        body: JSON.stringify({ type, voice, niche: nicheLabel(profile), name: profile.name, handle: profile.handle, brand: brandContextFrom(profile) }),
       });
       const data = await res.json();
       if (Array.isArray(data)) {

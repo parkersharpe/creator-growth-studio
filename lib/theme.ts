@@ -52,6 +52,21 @@ export const NICHES = [
   "Women in Business", "Beauty & Fashion", "Female Empowerment", "Motherhood",
   // Sports
   "Sports", "Basketball", "Football", "MMA & Combat Sports",
+  // Local Business & Trades
+  "Construction", "Contractor / Remodeling", "Pressure Washing", "Landscaping & Lawn Care",
+  "Roofing", "Plumbing", "HVAC", "Electrician", "Painting", "Flooring",
+  "Cleaning Services", "Junk Removal", "Moving Services", "Pest Control", "Handyman",
+  "Auto Detailing", "Auto Repair", "Towing", "Trucking & Logistics",
+  "Pool Service", "Solar", "Fencing", "Concrete & Masonry", "Window & Gutter",
+  // Local Services & Storefront
+  "Barber & Salon", "Nail Salon", "Med Spa & Aesthetics", "Tattoo & Piercing",
+  "Restaurant & Food Truck", "Coffee Shop", "Bakery", "Catering", "Bar & Nightlife",
+  "Gym & Fitness Studio", "Personal Training", "Yoga Studio",
+  "Photography & Video", "Event & Wedding", "Florist", "Interior Design",
+  // Professional Services
+  "Real Estate Agent", "Mortgage & Lending", "Insurance", "Law Firm",
+  "Accounting & Tax", "Financial Advisor", "Dental", "Med / Healthcare",
+  "Chiropractic", "Veterinary", "Auto Dealership", "Home Inspection",
 ];
 
 export const FONTS: Record<string, { label: string; google: string }> = {
