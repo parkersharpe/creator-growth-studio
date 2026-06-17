@@ -40,14 +40,20 @@ function mergeCollections(localRaw: string | null, cloudRaw: string | null): str
   }
 }
 
-// Per-key local "last edited" timestamps, so a stale cloud copy can't overwrite
-// a newer local change (e.g. a profile photo whose upload was dropped).
-const TS_PREFIX = 'cgs_ts_';
-function localTs(key: string): number {
-  try { return Number(localStorage.getItem(TS_PREFIX + key) || 0); } catch { return 0; }
+// Per-key "dirty" flags. A key is marked dirty the moment it's edited locally and
+// stays dirty until its upload is CONFIRMED by the server. On load, a dirty key is
+// never overwritten by the cloud — this protects a freshly uploaded profile photo
+// (or any edit) whose upload was dropped. Crucially this uses no timestamps, so it
+// can't be fooled by client/server clock skew (the old timestamp approach could).
+const DIRTY_PREFIX = 'cgs_dirty_';
+function isDirty(key: string): boolean {
+  try { return localStorage.getItem(DIRTY_PREFIX + key) === '1'; } catch { return false; }
 }
-function setLocalTs(key: string, ts: number) {
-  try { localStorage.setItem(TS_PREFIX + key, String(ts)); } catch {}
+function markDirty(key: string) {
+  try { localStorage.setItem(DIRTY_PREFIX + key, '1'); } catch {}
+}
+function clearDirty(key: string) {
+  try { localStorage.removeItem(DIRTY_PREFIX + key); } catch {}
 }
 
 function idOf(item: unknown): string {
@@ -72,26 +78,35 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
 
   // Send any queued changes to the cloud now. keepalive lets the request survive
   // a page being backgrounded or closed (the common "save then leave" case on mobile).
-  function flushNow() {
+  // On a confirmed (non-unload) success we clear the dirty flags so the cloud may win
+  // freely next load. On unload we can't read the response, so flags stay dirty and the
+  // value is simply re-uploaded next time (idempotent) — never lost.
+  function flushNow(viaUnload = false) {
     if (flushTimer.current) { clearTimeout(flushTimer.current); flushTimer.current = null; }
     const entries = pending.current;
-    if (Object.keys(entries).length === 0) return;
+    const keys = Object.keys(entries);
+    if (keys.length === 0) return;
     pending.current = {};
     try {
-      fetch('/api/data', {
+      const p = fetch('/api/data', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entries }),
-        keepalive: true,
-      }).catch(() => {});
+        keepalive: viaUnload,
+      });
+      if (!viaUnload) {
+        p.then(res => { if (res.ok) for (const k of keys) clearDirty(k); }).catch(() => {});
+      } else {
+        p.catch(() => {});
+      }
     } catch {}
   }
 
   // Flush whenever the tab is hidden or the page is being torn down, so timers
   // frozen by the OS can't swallow a pending save.
   useEffect(() => {
-    const onHide = () => { if (document.visibilityState === 'hidden') flushNow(); };
-    const onPageHide = () => flushNow();
+    const onHide = () => { if (document.visibilityState === 'hidden') flushNow(true); };
+    const onPageHide = () => flushNow(true);
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', onPageHide);
     return () => {
@@ -115,12 +130,12 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
     }
 
     function queueUpload(key: string, value: string) {
-      setLocalTs(key, Date.now()); // stamp the genuine local edit time
+      markDirty(key); // unconfirmed local change — protect it on next load
       pending.current[key] = value;
       if (flushTimer.current) clearTimeout(flushTimer.current);
       // Short coalescing window — long enough to batch slider drags, short enough
       // that a quick save→reload still lands. Backgrounding is covered by flushNow().
-      flushTimer.current = setTimeout(flushNow, 500);
+      flushTimer.current = setTimeout(() => flushNow(false), 500);
     }
 
     function installInterceptor() {
@@ -138,9 +153,8 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch('/api/data');
         if (res.ok) {
-          const { data, updatedAt = {} } = await res.json() as {
+          const { data } = await res.json() as {
             data: Record<string, string>;
-            updatedAt?: Record<string, number>;
           };
           const ownsDevice = !!localStorage.getItem(`cgs_profile_${uid}`);
           const toUpload: Record<string, string> = {};
@@ -162,19 +176,18 @@ export default function CloudSync({ children }: { children: React.ReactNode }) {
               const localVal = USER_SCOPED.includes(key)
                 ? localStorage.getItem(`${key}_${uid}`) || localStorage.getItem(key)
                 : localStorage.getItem(key);
-              const serverTs = updatedAt[key] || 0;
 
-              if (localVal && localVal !== serverVal && localTs(key) > serverTs) {
-                // Local change is newer than the cloud copy — keep it, push it up.
-                // Prevents a stale cloud value from clobbering a recent local edit.
+              if (localVal && localVal !== serverVal && isDirty(key)) {
+                // Local change hasn't been confirmed-synced yet — keep it and re-upload.
+                // Never let the cloud clobber an unsynced local edit (e.g. a new photo).
                 localStorage.setItem(key, localVal);
                 if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, localVal);
                 toUpload[key] = localVal;
               } else {
-                // Cloud wins — align the local timestamp to the cloud version's time
+                // Cloud is authoritative — take it and clear any stale dirty flag
                 localStorage.setItem(key, serverVal);
                 if (USER_SCOPED.includes(key)) localStorage.setItem(`${key}_${uid}`, serverVal);
-                setLocalTs(key, serverTs);
+                clearDirty(key);
               }
             } else if (ownsDevice) {
               const localVal = USER_SCOPED.includes(key)
